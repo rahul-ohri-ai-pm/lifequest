@@ -10,9 +10,9 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 | M1 — Engine core + tests | ✅ Done (2026-07-09) | `868ae35` | 46 tests passing: XP golden table, dayKey/DST, counted-award rule, monthGrid |
 | M2 — Data layer | ✅ Done (2026-07-09) | | SQLite client, migration runner, `0001_init` (Phase 1 tables + indexes + CHECKs), typed queries, atomic logCompletion/undoCompletion, `__DEV__` XP-sum invariant |
 | M3 — Golden slice | ✅ Done (2026-07-09) | | Startup gate (migrate→hydrate→render), Today fast capture + complete, profile level/XP bar. ⚠ Restart-survival needs on-device check |
-| M4 — Undo + archive | ⬜ Not started | | |
-| M5 — Habits + skip | ⬜ Not started | | |
-| M6 — Counted tasks | ⬜ Not started | | |
+| M4 — Undo + archive | ✅ Done (2026-07-09) | `a5b251e` | Undo latest completion, task detail screen, archived list w/ restore (Profile link) |
+| M5 — Habits + skip | ✅ Done (2026-07-09) | `1b640f1` | Type selector + weekday schedule picker, Today filters habits by schedule, skip/unskip |
+| M6 — Counted tasks | ✅ Done (2026-07-09) | | +1 progress logging, x/y display, threshold entry carries full XP, undo reverses per-row |
 | M7 — Edit + snooze | ⬜ Not started | | |
 | M8 — Calendar screen | ⬜ Not started | | |
 | M9 — Hardening | ⬜ Not started | | |

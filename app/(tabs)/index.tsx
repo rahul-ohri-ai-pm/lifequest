@@ -16,9 +16,21 @@ export default function TodayScreen() {
   const undoCompletion = useTaskStore((s) => s.undoCompletion);
   const skipTask = useTaskStore((s) => s.skipTask);
   const unskipTask = useTaskStore((s) => s.unskipTask);
+  const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
 
   const completedTaskIds = new Set(completionsToday.map((c) => c.taskId));
   const skippedTaskIds = new Set(skipsToday.map((s) => s.taskId));
+
+  // Counted tasks: today's cumulative progress per task (daily reset, §7)
+  const progressByTask = new Map<string, number>();
+  for (const c of completionsToday) {
+    progressByTask.set(c.taskId, (progressByTask.get(c.taskId) ?? 0) + (c.progressCount ?? 0));
+  }
+
+  const isDone = (t: Task) =>
+    t.type === 'counted' && t.targetCount != null
+      ? (progressByTask.get(t.id) ?? 0) >= t.targetCount
+      : completedTaskIds.has(t.id);
 
   // Today view (§4): todos and counted always; habits only on their scheduled days
   const today = new Date();
@@ -30,6 +42,7 @@ export default function TodayScreen() {
   const onComplete = (task: Task) => void completeTask(task, new Date());
   const onSkip = (task: Task) => void skipTask(task, new Date());
   const onUnskip = (task: Task) => void unskipTask(task, new Date());
+  const onLogProgress = (task: Task) => void logCountedProgress(task, 1, new Date());
 
   // §4 Undo: remove the most recent completion for today
   const onUndo = (task: Task) => {
@@ -46,12 +59,15 @@ export default function TodayScreen() {
         renderItem={({ item }) => (
           <TaskCard
             task={item}
-            completedToday={completedTaskIds.has(item.id)}
+            done={isDone(item)}
+            hasCompletionToday={completedTaskIds.has(item.id)}
             skippedToday={skippedTaskIds.has(item.id)}
+            progressToday={progressByTask.get(item.id) ?? 0}
             onComplete={onComplete}
             onUndo={onUndo}
             onSkip={onSkip}
             onUnskip={onUnskip}
+            onLogProgress={onLogProgress}
           />
         )}
         ListEmptyComponent={

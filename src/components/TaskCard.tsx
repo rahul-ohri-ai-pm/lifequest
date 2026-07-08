@@ -6,18 +6,33 @@ import type { Task } from '../types';
 
 interface Props {
   task: Task;
-  completedToday: boolean;
+  done: boolean; // strike-through state (counted: daily target reached)
+  hasCompletionToday: boolean; // enables undo
   skippedToday: boolean;
+  progressToday: number; // counted tasks: today's cumulative sum
   onComplete(task: Task): void;
   onUndo(task: Task): void;
   onSkip(task: Task): void;
   onUnskip(task: Task): void;
+  onLogProgress(task: Task): void;
 }
 
-export function TaskCard({ task, completedToday, skippedToday, onComplete, onUndo, onSkip, onUnskip }: Props) {
+export function TaskCard({
+  task,
+  done,
+  hasCompletionToday,
+  skippedToday,
+  progressToday,
+  onComplete,
+  onUndo,
+  onSkip,
+  onUnskip,
+  onLogProgress,
+}: Props) {
   const router = useRouter();
   const accent = difficultyColors[task.difficulty];
-  const inactive = completedToday || skippedToday;
+  const inactive = done || skippedToday;
+  const isCounted = task.type === 'counted' && task.targetCount != null;
 
   return (
     <View style={[styles.card, { borderColor: accent }, inactive && styles.done]}>
@@ -26,18 +41,19 @@ export function TaskCard({ task, completedToday, skippedToday, onComplete, onUnd
           {task.title}
         </Text>
         <Text style={[styles.meta, { color: accent }]}>
-          {task.type === 'habit' ? 'habit · ' : ''}
+          {task.type !== 'todo' ? `${task.type} · ` : ''}
           {task.difficulty} · {xpForDifficulty(task.difficulty)} XP
+          {isCounted ? ` · ${progressToday}/${task.targetCount}` : ''}
           {skippedToday ? ' · skipped' : ''}
         </Text>
       </Pressable>
-      {completedToday && (
+      {hasCompletionToday && (
         <Pressable onPress={() => onUndo(task)} hitSlop={8}>
           <Text style={styles.linkAction}>undo</Text>
         </Pressable>
       )}
       {/* §4 Skip: offered only for habits on their scheduled days */}
-      {task.type === 'habit' && !completedToday && !skippedToday && (
+      {task.type === 'habit' && !done && !skippedToday && (
         <Pressable onPress={() => onSkip(task)} hitSlop={8}>
           <Text style={styles.linkAction}>skip</Text>
         </Pressable>
@@ -47,13 +63,23 @@ export function TaskCard({ task, completedToday, skippedToday, onComplete, onUnd
           <Text style={styles.linkAction}>unskip</Text>
         </Pressable>
       )}
-      {!skippedToday && (
+      {!skippedToday && isCounted && (
         <Pressable
-          style={[styles.check, { borderColor: accent }, completedToday && { backgroundColor: accent }]}
-          onPress={() => onComplete(task)}
-          disabled={completedToday}
+          style={[styles.check, styles.plus, { borderColor: accent }, done && { backgroundColor: accent }]}
+          onPress={() => onLogProgress(task)}
         >
-          {completedToday && <Text style={styles.checkMark}>✓</Text>}
+          <Text style={[styles.plusText, { color: done ? colors.background : accent }]}>
+            {done ? '✓' : '+1'}
+          </Text>
+        </Pressable>
+      )}
+      {!skippedToday && !isCounted && (
+        <Pressable
+          style={[styles.check, { borderColor: accent }, done && { backgroundColor: accent }]}
+          onPress={() => onComplete(task)}
+          disabled={done}
+        >
+          {done && <Text style={styles.checkMark}>✓</Text>}
         </Pressable>
       )}
     </View>
@@ -86,5 +112,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  plus: { width: 36 },
+  plusText: { fontSize: 12, fontWeight: 'bold' },
   checkMark: { color: colors.background, fontWeight: 'bold' },
 });

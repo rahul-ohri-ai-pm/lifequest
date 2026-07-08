@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { xpForDifficulty } from '../engine/xp';
+import { xpForCountedLog } from '../engine/counted';
 import { dayKeyFor, dayWindow } from '../engine/time';
 import * as taskQueries from '../db/queries/tasks';
 import * as completionQueries from '../db/queries/completions';
@@ -16,6 +17,7 @@ interface TaskState {
   addTask(input: NewTask, now: Date): Promise<Task>;
   updateTask(id: string, patch: TaskPatch, now: Date): Promise<void>;
   completeTask(task: Task, now: Date): Promise<Completion>;
+  logCountedProgress(task: Task, amount: number, now: Date): Promise<Completion>;
   undoCompletion(completionId: string, now: Date): Promise<void>;
   skipTask(task: Task, now: Date): Promise<void>;
   unskipTask(task: Task, now: Date): Promise<void>;
@@ -53,6 +55,20 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     // Counted tasks log progress via their own flow (M6); this is the one-tap complete.
     const xp = xpForDifficulty(task.difficulty);
     const { completion, character } = await completionQueries.logCompletion(task.id, xp, null, now);
+    set({ completionsToday: [...get().completionsToday, completion] });
+    useCharacterStore.getState().setFromPersisted(character);
+    return completion;
+  },
+
+  // §7 counted rule: XP decided at log time against the current target; the entry
+  // whose cumulative sum first reaches the target carries the full difficulty XP.
+  logCountedProgress: async (task, amount, now) => {
+    if (task.targetCount == null) throw new Error('logCountedProgress requires a counted task');
+    const prior = get()
+      .completionsToday.filter((c) => c.taskId === task.id)
+      .reduce((sum, c) => sum + (c.progressCount ?? 0), 0);
+    const xp = xpForCountedLog(prior, amount, task.targetCount, task.difficulty);
+    const { completion, character } = await completionQueries.logCompletion(task.id, xp, amount, now);
     set({ completionsToday: [...get().completionsToday, completion] });
     useCharacterStore.getState().setFromPersisted(character);
     return completion;
