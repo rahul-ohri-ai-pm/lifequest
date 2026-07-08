@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds (managed workflow — regenerated, never committed)
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+
+# Metro
+.metro-health-check*
+
+# Testing
+coverage/
+
+# Environment
+.env
+.env.*
+
+# Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
