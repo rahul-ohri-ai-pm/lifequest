@@ -10,6 +10,7 @@ export default function TodayScreen() {
   const completionsToday = useTaskStore((s) => s.completionsToday);
   const addTask = useTaskStore((s) => s.addTask);
   const completeTask = useTaskStore((s) => s.completeTask);
+  const undoCompletion = useTaskStore((s) => s.undoCompletion);
 
   const completedTaskIds = new Set(completionsToday.map((c) => c.taskId));
 
@@ -21,6 +22,12 @@ export default function TodayScreen() {
     void completeTask(task, new Date());
   };
 
+  // §4 Undo: remove the most recent completion for today
+  const onUndo = (task: Task) => {
+    const latest = [...completionsToday].reverse().find((c) => c.taskId === task.id);
+    if (latest) void undoCompletion(latest.id, new Date());
+  };
+
   return (
     <View style={styles.screen}>
       <FlatList
@@ -28,7 +35,12 @@ export default function TodayScreen() {
         keyExtractor={(t) => t.id}
         ListHeaderComponent={<FastCapture onAdd={onAdd} />}
         renderItem={({ item }) => (
-          <TaskCard task={item} completedToday={completedTaskIds.has(item.id)} onComplete={onComplete} />
+          <TaskCard
+            task={item}
+            completedToday={completedTaskIds.has(item.id)}
+            onComplete={onComplete}
+            onUndo={onUndo}
+          />
         )}
         ListEmptyComponent={
           <Text style={styles.empty}>No quests yet — add your first one above.</Text>

@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useCharacterStore } from '../../src/store/useCharacterStore';
 import { levelProgress } from '../../src/engine/xp';
 import { colors, glow, radii, spacing } from '../../src/constants/theme';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const character = useCharacterStore((s) => s.character);
   if (!character) return <View style={styles.screen} />;
 
@@ -21,6 +23,9 @@ export default function ProfileScreen() {
           {character.totalXp} / {p.nextLevelXp} XP
         </Text>
       </View>
+      <Pressable style={styles.link} onPress={() => router.push('/archived')}>
+        <Text style={styles.linkText}>Archived quests →</Text>
+      </Pressable>
     </View>
   );
 }
@@ -50,4 +55,6 @@ const styles = StyleSheet.create({
   },
   barFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 5 },
   xpText: { color: colors.textPrimary, marginTop: spacing.sm },
+  link: { marginTop: spacing.md, padding: spacing.sm },
+  linkText: { color: colors.accent, fontSize: 14 },
 });
