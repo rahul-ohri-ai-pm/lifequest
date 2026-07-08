@@ -20,6 +20,12 @@ export function dateFromDayKey(dayKey: string): Date {
   return new Date(y, m - 1, d);
 }
 
+// ISO boundaries of the LOCAL day containing `date` — for querying completions by day.
+export function dayWindow(date: Date): { startIso: string; endIso: string } {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return { startIso: start.toISOString(), endIso: addDays(start, 1).toISOString() };
+}
+
 // Is a habit scheduled on this date? (days: 0-6, Sun-Sat, matching Date.getDay)
 export function isScheduledDay(schedule: Schedule, date: Date): boolean {
   if (schedule.freq === 'daily') return true;

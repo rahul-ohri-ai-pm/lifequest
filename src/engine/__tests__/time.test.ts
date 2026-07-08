@@ -1,4 +1,4 @@
-import { addDays, dateFromDayKey, dayKeyFor, isScheduledDay } from '../time';
+import { addDays, dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../time';
 
 describe('dayKeyFor', () => {
   it('uses local date components with zero padding', () => {
@@ -46,6 +46,25 @@ describe('dateFromDayKey', () => {
   it('round-trips with dayKeyFor', () => {
     expect(dayKeyFor(dateFromDayKey('2026-07-09'))).toBe('2026-07-09');
     expect(dayKeyFor(dateFromDayKey('2024-02-29'))).toBe('2024-02-29');
+  });
+});
+
+describe('dayWindow', () => {
+  it('spans exactly the local day containing the date', () => {
+    const { startIso, endIso } = dayWindow(new Date(2026, 6, 9, 15, 30));
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    expect(dayKeyFor(start)).toBe('2026-07-09');
+    expect(dayKeyFor(end)).toBe('2026-07-10');
+    expect(start.getHours()).toBe(0);
+    expect(end.getHours()).toBe(0);
+  });
+
+  it('a timestamp at 23:59 falls inside its own day window', () => {
+    const at = new Date(2026, 6, 9, 23, 59, 59);
+    const { startIso, endIso } = dayWindow(at);
+    const iso = at.toISOString();
+    expect(iso >= startIso && iso < endIso).toBe(true);
   });
 });
 

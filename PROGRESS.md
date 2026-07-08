@@ -8,8 +8,8 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 |---|---|---|---|
 | M0 — Scaffold | ✅ Done (2026-07-09) | `1c06f37` | Expo SDK 57, router 4-tab dark shell, theme tokens, all-phase types. Typecheck + Android bundle verified |
 | M1 — Engine core + tests | ✅ Done (2026-07-09) | `868ae35` | 46 tests passing: XP golden table, dayKey/DST, counted-award rule, monthGrid |
-| M2 — Data layer | ⬜ Not started | | |
-| M3 — Golden slice | ⬜ Not started | | |
+| M2 — Data layer | ✅ Done (2026-07-09) | | SQLite client, migration runner, `0001_init` (Phase 1 tables + indexes + CHECKs), typed queries, atomic logCompletion/undoCompletion, `__DEV__` XP-sum invariant |
+| M3 — Golden slice | ✅ Done (2026-07-09) | | Startup gate (migrate→hydrate→render), Today fast capture + complete, profile level/XP bar. ⚠ Restart-survival needs on-device check |
 | M4 — Undo + archive | ⬜ Not started | | |
 | M5 — Habits + skip | ⬜ Not started | | |
 | M6 — Counted tasks | ⬜ Not started | | |
