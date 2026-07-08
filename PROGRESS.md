@@ -1,0 +1,43 @@
+# LifeQuest — Development Progress
+
+Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
+
+## Phase 1
+
+| Milestone | Status | Commit | Notes |
+|---|---|---|---|
+| M0 — Scaffold | ✅ Done (2026-07-09) | `1c06f37` | Expo SDK 57, router 4-tab dark shell, theme tokens, all-phase types. Typecheck + Android bundle verified |
+| M1 — Engine core + tests | ✅ Done (2026-07-09) | `868ae35` | 46 tests passing: XP golden table, dayKey/DST, counted-award rule, monthGrid |
+| M2 — Data layer | ⬜ Not started | | |
+| M3 — Golden slice | ⬜ Not started | | |
+| M4 — Undo + archive | ⬜ Not started | | |
+| M5 — Habits + skip | ⬜ Not started | | |
+| M6 — Counted tasks | ⬜ Not started | | |
+| M7 — Edit + snooze | ⬜ Not started | | |
+| M8 — Calendar screen | ⬜ Not started | | |
+| M9 — Hardening | ⬜ Not started | | |
+
+## Phase 2
+
+| Item | Status |
+|---|---|
+| Streak engine (tested) | ⬜ |
+| Skills migration + tagging + split XP | ⬜ |
+| Badge engine + gallery | ⬜ |
+| Skill dashboard | ⬜ |
+
+## Phase 3
+
+| Item | Status |
+|---|---|
+| Goals engine + UI | ⬜ |
+| Full stats + heatmap | ⬜ |
+| Local notifications | ⬜ |
+| Level-up animations | ⬜ |
+| JSON export/import | ⬜ |
+
+## Known issues / tech debt
+
+- expo-router default tabs bundle a 956KB Material Symbols font — remove when inline SVG tab icons land (M9)
+- `.npmrc` uses `legacy-peer-deps` (react-dom peer conflict in Expo SDK 57 tree) — revisit on SDK upgrade
+- jest pinned to 29.x for jest-expo 57 compatibility
