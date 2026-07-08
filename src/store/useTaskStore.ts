@@ -1,20 +1,24 @@
 import { create } from 'zustand';
 import { xpForDifficulty } from '../engine/xp';
-import { dayWindow } from '../engine/time';
+import { dayKeyFor, dayWindow } from '../engine/time';
 import * as taskQueries from '../db/queries/tasks';
 import * as completionQueries from '../db/queries/completions';
+import * as skipQueries from '../db/queries/skips';
 import { useCharacterStore } from './useCharacterStore';
-import type { Completion, Task } from '../types';
+import type { Completion, Skip, Task } from '../types';
 import type { NewTask, TaskPatch } from '../db/queries/tasks';
 
 interface TaskState {
   tasks: Task[];
   completionsToday: Completion[];
+  skipsToday: Skip[];
   hydrate(now: Date): Promise<void>;
   addTask(input: NewTask, now: Date): Promise<Task>;
   updateTask(id: string, patch: TaskPatch, now: Date): Promise<void>;
   completeTask(task: Task, now: Date): Promise<Completion>;
   undoCompletion(completionId: string, now: Date): Promise<void>;
+  skipTask(task: Task, now: Date): Promise<void>;
+  unskipTask(task: Task, now: Date): Promise<void>;
   archiveTask(id: string, now: Date): Promise<void>;
   unarchiveTask(id: string, now: Date): Promise<void>;
 }
@@ -22,14 +26,16 @@ interface TaskState {
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   completionsToday: [],
+  skipsToday: [],
 
   hydrate: async (now) => {
     const { startIso, endIso } = dayWindow(now);
-    const [tasks, completionsToday] = await Promise.all([
+    const [tasks, completionsToday, skipsToday] = await Promise.all([
       taskQueries.getActiveTasks(),
       completionQueries.getCompletionsBetween(startIso, endIso),
+      skipQueries.getSkipsForDay(dayKeyFor(now)),
     ]);
-    set({ tasks, completionsToday });
+    set({ tasks, completionsToday, skipsToday });
   },
 
   addTask: async (input, now) => {
@@ -56,6 +62,18 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const character = await completionQueries.undoCompletion(completionId, now);
     set({ completionsToday: get().completionsToday.filter((c) => c.id !== completionId) });
     useCharacterStore.getState().setFromPersisted(character);
+  },
+
+  // §4 Skip: explicit "chose not to do it today" — stats-only, no XP
+  skipTask: async (task, now) => {
+    const skip = await skipQueries.addSkip(task.id, dayKeyFor(now), now);
+    set({ skipsToday: [...get().skipsToday, skip] });
+  },
+
+  unskipTask: async (task, now) => {
+    const dayKey = dayKeyFor(now);
+    await skipQueries.removeSkip(task.id, dayKey);
+    set({ skipsToday: get().skipsToday.filter((s) => !(s.taskId === task.id && s.day === dayKey)) });
   },
 
   archiveTask: async (id, now) => {

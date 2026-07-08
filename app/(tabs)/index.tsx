@@ -2,25 +2,34 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { FastCapture } from '../../src/components/FastCapture';
 import { TaskCard } from '../../src/components/TaskCard';
 import { useTaskStore } from '../../src/store/useTaskStore';
+import { isScheduledDay } from '../../src/engine/time';
 import { colors, spacing } from '../../src/constants/theme';
-import type { Difficulty, Task } from '../../src/types';
+import type { Task } from '../../src/types';
+import type { NewTask } from '../../src/db/queries/tasks';
 
 export default function TodayScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const completionsToday = useTaskStore((s) => s.completionsToday);
+  const skipsToday = useTaskStore((s) => s.skipsToday);
   const addTask = useTaskStore((s) => s.addTask);
   const completeTask = useTaskStore((s) => s.completeTask);
   const undoCompletion = useTaskStore((s) => s.undoCompletion);
+  const skipTask = useTaskStore((s) => s.skipTask);
+  const unskipTask = useTaskStore((s) => s.unskipTask);
 
   const completedTaskIds = new Set(completionsToday.map((c) => c.taskId));
+  const skippedTaskIds = new Set(skipsToday.map((s) => s.taskId));
 
-  const onAdd = (title: string, difficulty: Difficulty) => {
-    void addTask({ title, difficulty, type: 'todo' }, new Date());
-  };
+  // Today view (§4): todos and counted always; habits only on their scheduled days
+  const today = new Date();
+  const todayTasks = tasks.filter(
+    (t) => t.type !== 'habit' || !t.schedule || isScheduledDay(t.schedule, today)
+  );
 
-  const onComplete = (task: Task) => {
-    void completeTask(task, new Date());
-  };
+  const onAdd = (input: NewTask) => void addTask(input, new Date());
+  const onComplete = (task: Task) => void completeTask(task, new Date());
+  const onSkip = (task: Task) => void skipTask(task, new Date());
+  const onUnskip = (task: Task) => void unskipTask(task, new Date());
 
   // §4 Undo: remove the most recent completion for today
   const onUndo = (task: Task) => {
@@ -31,19 +40,22 @@ export default function TodayScreen() {
   return (
     <View style={styles.screen}>
       <FlatList
-        data={tasks}
+        data={todayTasks}
         keyExtractor={(t) => t.id}
         ListHeaderComponent={<FastCapture onAdd={onAdd} />}
         renderItem={({ item }) => (
           <TaskCard
             task={item}
             completedToday={completedTaskIds.has(item.id)}
+            skippedToday={skippedTaskIds.has(item.id)}
             onComplete={onComplete}
             onUndo={onUndo}
+            onSkip={onSkip}
+            onUnskip={onUnskip}
           />
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>No quests yet — add your first one above.</Text>
+          <Text style={styles.empty}>No quests for today — add your first one above.</Text>
         }
         contentContainerStyle={{ paddingBottom: spacing.xl }}
       />

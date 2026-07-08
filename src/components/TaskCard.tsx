@@ -7,35 +7,55 @@ import type { Task } from '../types';
 interface Props {
   task: Task;
   completedToday: boolean;
+  skippedToday: boolean;
   onComplete(task: Task): void;
   onUndo(task: Task): void;
+  onSkip(task: Task): void;
+  onUnskip(task: Task): void;
 }
 
-export function TaskCard({ task, completedToday, onComplete, onUndo }: Props) {
+export function TaskCard({ task, completedToday, skippedToday, onComplete, onUndo, onSkip, onUnskip }: Props) {
   const router = useRouter();
   const accent = difficultyColors[task.difficulty];
+  const inactive = completedToday || skippedToday;
+
   return (
-    <View style={[styles.card, { borderColor: accent }, completedToday && styles.done]}>
+    <View style={[styles.card, { borderColor: accent }, inactive && styles.done]}>
       <Pressable style={styles.info} onPress={() => router.push(`/task/${task.id}`)}>
-        <Text style={[styles.title, completedToday && styles.doneText]} numberOfLines={1}>
+        <Text style={[styles.title, inactive && styles.doneText]} numberOfLines={1}>
           {task.title}
         </Text>
         <Text style={[styles.meta, { color: accent }]}>
+          {task.type === 'habit' ? 'habit · ' : ''}
           {task.difficulty} · {xpForDifficulty(task.difficulty)} XP
+          {skippedToday ? ' · skipped' : ''}
         </Text>
       </Pressable>
       {completedToday && (
         <Pressable onPress={() => onUndo(task)} hitSlop={8}>
-          <Text style={styles.undo}>undo</Text>
+          <Text style={styles.linkAction}>undo</Text>
         </Pressable>
       )}
-      <Pressable
-        style={[styles.check, { borderColor: accent }, completedToday && { backgroundColor: accent }]}
-        onPress={() => onComplete(task)}
-        disabled={completedToday}
-      >
-        {completedToday && <Text style={styles.checkMark}>✓</Text>}
-      </Pressable>
+      {/* §4 Skip: offered only for habits on their scheduled days */}
+      {task.type === 'habit' && !completedToday && !skippedToday && (
+        <Pressable onPress={() => onSkip(task)} hitSlop={8}>
+          <Text style={styles.linkAction}>skip</Text>
+        </Pressable>
+      )}
+      {skippedToday && (
+        <Pressable onPress={() => onUnskip(task)} hitSlop={8}>
+          <Text style={styles.linkAction}>unskip</Text>
+        </Pressable>
+      )}
+      {!skippedToday && (
+        <Pressable
+          style={[styles.check, { borderColor: accent }, completedToday && { backgroundColor: accent }]}
+          onPress={() => onComplete(task)}
+          disabled={completedToday}
+        >
+          {completedToday && <Text style={styles.checkMark}>✓</Text>}
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -57,7 +77,7 @@ const styles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 16 },
   doneText: { textDecorationLine: 'line-through', color: colors.textSecondary },
   meta: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
-  undo: { color: colors.textSecondary, fontSize: 12, textDecorationLine: 'underline' },
+  linkAction: { color: colors.textSecondary, fontSize: 12, textDecorationLine: 'underline' },
   check: {
     width: 28,
     height: 28,
