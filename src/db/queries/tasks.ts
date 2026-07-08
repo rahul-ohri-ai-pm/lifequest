@@ -83,15 +83,14 @@ export async function updateTask(id: string, patch: TaskPatch, now: Date): Promi
   const db = await getDb();
   const current = await getTaskById(id);
   const next = { ...current, ...patch };
+  const schedule = patch.schedule !== undefined ? patch.schedule : current.schedule;
   await db.runAsync(
     `UPDATE tasks SET title = ?, notes = ?, difficulty = ?, schedule_json = ?, target_count = ?,
        due_at = ?, reminder_at = ?, status = ?, updated_at = ? WHERE id = ?`,
     next.title,
     next.notes ?? null,
     next.difficulty,
-    'schedule' in patch || current.schedule
-      ? JSON.stringify(patch.schedule !== undefined ? patch.schedule : current.schedule)
-      : null,
+    schedule ? JSON.stringify(schedule) : null,
     next.targetCount ?? null,
     next.dueAt ?? null,
     next.reminderAt ?? null,
