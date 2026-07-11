@@ -32,6 +32,12 @@ export async function removeSkip(taskId: string, dayKey: string): Promise<void> 
   await db.runAsync('DELETE FROM skips WHERE task_id = ? AND day = ?', taskId, dayKey);
 }
 
+export async function getAllSkips(): Promise<Skip[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<SkipRow>('SELECT * FROM skips');
+  return rows.map(rowToSkip);
+}
+
 export async function getSkipsForDay(dayKey: string): Promise<Skip[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<SkipRow>('SELECT * FROM skips WHERE day = ?', dayKey);

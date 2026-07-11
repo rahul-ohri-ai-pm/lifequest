@@ -136,6 +136,14 @@ export async function getCompletionsBetween(startIso: string, endIso: string): P
   return rows.map(rowToCompletion);
 }
 
+export async function getAllCompletions(): Promise<Completion[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<CompletionRow>(
+    'SELECT * FROM completions ORDER BY completed_at ASC'
+  );
+  return rows.map(rowToCompletion);
+}
+
 export async function getCompletionsForTask(taskId: string): Promise<Completion[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<CompletionRow>(
