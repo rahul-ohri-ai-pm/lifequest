@@ -17,6 +17,16 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 | M8 — Calendar screen | ✅ Done (2026-07-09) | `e857e3a` | Hand-rolled month grid, activity dots, day tap → scheduled/due list w/ completed marks |
 | M9 — Hardening | ✅ Done (2026-07-09) | | Inline SVG tab icons, 956KB icon-font stripped via metro stub. ⚠ On-device pass pending (restart survival, cold start) |
 
+## Phase 1.5 (owner feedback round 1 — see PLAN.md)
+
+| Milestone | Status | Notes |
+|---|---|---|
+| N1 — Standalone APK | ✅ Done (2026-07-11) | Local toolchain (JDK 17 + SDK 36), `LifeQuest.apk` on Desktop (93MB universal; arm64-only ≈30MB). Build steps in README |
+| N2 — Stats dashboard v1 | ⬜ | |
+| N3 — Capture rework (no type/difficulty pickers) | ⬜ | |
+| N4 — Skills/categories + split XP | ⬜ | |
+| N5 — Stats v1.5 (per-category + date filters) | ⬜ | |
+
 ## Phase 2
 
 | Item | Status |

@@ -27,6 +27,20 @@ npm run lint                 # eslint
 npx expo export --platform android   # bundle check; delete dist/ afterwards
 ```
 
+## Building the standalone APK (local, no Expo account)
+
+One-time machine setup is already done on the dev PC (JDK 17 via winget; Android SDK cmdline-tools
+at `%LOCALAPPDATA%\Android\Sdk`; `JAVA_HOME`/`ANDROID_HOME` set; licenses accepted). To build:
+
+```bash
+npx expo prebuild --platform android --no-install   # regenerates android/ (gitignored) if absent
+cd android; .\gradlew.bat assembleRelease           # APK: android/app/build/outputs/apk/release/app-release.apk
+```
+
+Sideload: copy the APK to the phone, tap it, allow "install unknown apps" for the file manager.
+Note: the default build packages all 4 CPU ABIs (~93MB). For a phone-only build add
+`-PreactNativeArchitectures=arm64-v8a` to the gradlew command (~30MB).
+
 ## Status
 
 Phase 1 (MVP) is code-complete: all three task types, complete/undo/skip/snooze/archive, XP +

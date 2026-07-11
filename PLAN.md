@@ -31,6 +31,27 @@ Spec: [CLAUDE.md](CLAUDE.md). Progress: [PROGRESS.md](PROGRESS.md).
 - **M8 — Calendar screen**: monthGrid rendered with glow styling; tap day → that day's tasks
 - **M9 — Hardening**: restart-survival audit, glow polish everywhere, cold-start/bundle measurement, drop expo-router's default 956KB tab-icon font (replace with inline SVG icons)
 
+## Phase 1.5 — owner feedback round 1 (2026-07-11, approved)
+
+From first on-device use + PM/UX agent debate. Decisions: difficulty picker hidden (default
+Medium, edit-screen only — column/engine untouched); type picker replaced by orthogonal
+Repeat/Target toggles (schedule valid on any type, no table rebuild); skills pulled forward
+(MRU one-tap chips, optional, split-XP kept); stats built in two passes so v1 needs no migration.
+
+- **N1 — Standalone APK**: local build toolchain (JDK 17 + Android SDK), `expo prebuild` +
+  `gradlew assembleRelease`, installable without Expo Go. Repeatable for every future release
+- **N2 — Stats dashboard v1** (no migrations): today hero strip, 14-day completion bars,
+  active-days tiles, completion-rate panel (skips distinct), top-tasks panel built on generic
+  `{label,value,color}[]` so categories slot in later
+- **N3 — Capture rework** (no migrations): remove type picker + difficulty chips; Repeat toggle
+  (weekday row) + Target toggle (stepper); counted tasks can have schedules
+- **N4 — Skills/categories**: `0002` migration, 8 defaults, MRU capture chips, split-XP,
+  per-skill levels
+- **N5 — Stats v1.5**: per-category XP/completions panel + day/week/month/all-time filter
+
+Spec amendments to CLAUDE.md: §7 (default difficulty), §4 (capture form, orthogonal
+schedule/target), §10 (resequencing). Streaks/badges remain Phase 2.
+
 ## Phase 2 (repeat M1→M3 pattern per feature)
 
 1. `streaks.ts` table-tested (schedule × completion × skip permutations) **before** streak UI
