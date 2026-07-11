@@ -1,0 +1,194 @@
+# LifeQuest — A Product Case Study
+
+*A step-by-step dev log of building a gamified habit tracker as a solo PM directing AI agents —
+written to showcase product-management decisions, not code. Source material for LinkedIn posts.*
+
+**The product**: LifeQuest turns real-life tasks (habits, chores, workouts, reading) into
+RPG-style progression — XP, levels, streaks, badges. Offline-first, single-user, private by
+design: no accounts, no cloud, no tracking. Android app built with React Native + Expo + SQLite.
+
+**The PM setup**: One product owner (me), zero human engineers. All code written by AI agents
+under a written product spec, with the PM making every scope, sequencing, and trade-off call.
+This case study logs those calls and what drove them.
+
+---
+
+## Step 0 — The spec before a single line of code
+
+**What happened**: Wrote a full product spec (CLAUDE.md) before development: goals, explicit
+non-goals, tech constraints, complete data schema, XP/streak math with worked tables, visual
+direction, and a 3-phase roadmap each with a testable Definition of Done.
+
+**PM decisions & why**:
+- **Non-goals as first-class spec** — no auth, no cloud, no social, no monetization, no
+  analytics. Every future "wouldn't it be cool if" gets tested against this list. Scope creep
+  dies at the spec.
+- **"Extremely lightweight" as a requirement, not a vibe** — small install, fast cold start,
+  budget-Android-friendly. Written as a standing constraint on *every* dependency decision, which
+  later paid off measurably (see Step 4).
+- **A forgiving game economy** — streak breaks are recorded, never punished with paywalls or
+  guilt mechanics. Product values encoded in the rules themselves.
+- **Definition of Done per phase** — behavioral, user-visible statements ("survives a full app
+  restart"), not engineering checklists. DoD phrasing later settled an architecture debate.
+
+**Skills shown**: product vision, requirement writing, scope control, success criteria.
+
+---
+
+## Step 1 — Making AI argue before making it build
+
+**What happened**: Before execution, spawned two engineering agents with opposing philosophies —
+a "ship-fast vertical slices" pragmatist and a "foundations-first" architect — and had them debate
+the build plan against the same spec. Synthesized the winner myself.
+
+**The insight the debate surfaced**: this app's completion log is append-forever (no delete, by
+design) — a wrong XP row written in week one can *never* be cleaned up. That tilted the first
+week toward the architect (build + exhaustively test the math and data layer first), and
+everything after toward the pragmatist (every milestone ships something runnable).
+
+**PM decisions & why**:
+- **Structured disagreement as a de-risking tool.** Two adversarial experts surfaced the
+  "irreversible data" risk in hours, cheaper than discovering it in month two.
+- **Hybrid verdict, explicitly reasoned**: "B wins the first week, A wins everything after" —
+  and the reasoning was written down so nobody relitigates it later.
+- Both agents *independently agreed* on 6 technical decisions (transaction strategy, date
+  handling, no calendar library…) — convergence from opposite priors is strong evidence; those
+  became locked decisions (DECISIONS.md).
+
+**Skills shown**: decision facilitation, risk identification, technical judgment without writing
+code, documenting the "why".
+
+---
+
+## Step 2 — Phase 1 execution: 10 milestones, each one demoable
+
+**What happened**: M0 (scaffold) → M1 (game math, 48 unit tests, golden-tested against the spec's
+own XP table) → M2 (data layer with atomic XP transactions + a dev-mode integrity tripwire) →
+M3 ("golden slice": create → complete → XP → survives restart) → M4–M8 (undo, habits+skip,
+counted tasks, edit+snooze, calendar) → M9 (hardening). Every milestone ended green
+(tests/typecheck/build) and committed to GitHub.
+
+**PM decisions & why**:
+- **The riskiest 20% got built first and tested hardest** — XP ledger integrity, timezone-safe
+  day bucketing, undo-exactness. UI screens are cheap to fix; corrupted user data isn't.
+- **Milestone = demoable unit**, not engineering task. "M5: habits + skip" is a sentence a user
+  understands.
+- **Mid-build bundle audit**: noticed the navigation library silently shipping a 956KB icon font
+  we never used. Stripped it (−1MB install size) and replaced with hand-drawn SVG icons — the
+  Step-0 lightweight constraint, enforced in practice.
+
+**Feedback loop note**: I gave a standing instruction to minimize cost/verbosity during
+execution — treating AI spend like any other burn rate. Efficiency is a PM concern too.
+
+**Skills shown**: milestone design, risk-first sequencing, quality gates, cost discipline.
+
+---
+
+## Step 3 — Documentation as a management system
+
+**What happened**: Created a doc set aimed at *future AI sessions and collaborators*: README
+(reading order), ARCHITECTURE (how it's actually built), CONVENTIONS (hard rules), GOTCHAS
+(environment traps — "do not fix these"), DECISIONS (14 logged decisions with rationale),
+PLAN/PROGRESS (roadmap + live status).
+
+**PM decision & why**: AI agents are a workforce with amnesia — every session starts cold.
+Institutional knowledge has to live in artifacts, not heads. GOTCHAS.md exists specifically
+because "helpful" fixes (upgrading a pinned library, deleting a weird config) are how projects
+regress. This is onboarding docs, written for a team of one thousand potential future hires.
+
+**Skills shown**: knowledge management, process design, working *on* the system not just in it.
+
+---
+
+## Step 4 — First real usage: the roadmap meets the user
+
+**What happened**: Installed the app on my own phone and used it. Within minutes, four pieces of
+feedback (verbatim):
+
+1. *"There's no way to set the category of a task"* — categories/skills were planned for Phase 2.
+2. *"The stats dashboard is the most important part"* — it was a placeholder scheduled last.
+3. *"I don't need difficulty tags"* — the 5-level difficulty picker was pure friction, even
+   though difficulty drove the entire XP economy.
+4. *"A counted task can be a habit also"* — the task-type system (todo|habit|counted) forced a
+   false choice; "8 glasses of water on Mon/Wed/Fri" was unrepresentable.
+
+Plus two sharp non-feature questions: *why a mobile app rather than web?* and *where does my data
+actually live?* — both answered from the spec's own reasoning (offline-first pocket capture; data
+in app-private storage, zero permissions requested because zero are needed).
+
+**PM decisions & why**:
+- **Ran a PM-vs-UX agent debate on the feedback** rather than reflexively building. UX argued
+  "the user's mental model IS the spec"; PM argued for data-integrity guardrails and scope
+  control. They agreed on solutions and disagreed only on sequencing — which told me exactly
+  where the real decision sat.
+- **Difficulty: hide, don't delete.** The user rejected the *picker*, not big rewards. Default
+  everything to Medium, keep the 5-tier system in the edit screen for opt-in. Zero migrations,
+  zero engine risk, complaint solved. Distinguishing what users say from what they mean is the
+  job.
+- **Task types: dissolve in the UI, not the database.** Replace the type picker with two
+  orthogonal toggles (Repeat / Count-to-target). The schema already supported it — the UI was
+  imposing a taxonomy the data never required.
+- **Stats got resequenced to the front**, but split in two: v1 ships immediately on existing
+  data (zero new tables), the per-category view lands right after skills do — with panels built
+  generic so v1 isn't throwaway. Both agents' concerns satisfied by phasing, not compromise.
+- **Roadmap integrity kept**: this became a named "Phase 1.5" with spec amendments listed and
+  owner-approved — feedback absorbed *through* process, not by abandoning it.
+
+**Skills shown**: user research on your own product, feedback triage, saying "yes, differently",
+re-prioritization with reasoning, phasing as a conflict-resolution tool.
+
+---
+
+## Step 5 — Distribution reality check: "I want an APK, now"
+
+**What happened**: The app ran through Expo Go (a development container needing the dev PC).
+Owner call: real product = an installable APK with zero development dependencies. Re-prioritized
+it as N1, ahead of all features.
+
+**PM decisions & why**:
+- **Distribution beats features.** An app you can't carry in your pocket isn't a product; the
+  next feedback loops are only as good as the install experience.
+- **Build locally, not via cloud service** — a one-time ~3GB toolchain install bought permanent,
+  free, offline release capability with no account dependencies. Chose long-term autonomy over
+  short-term convenience, consciously.
+- Result: 93MB installable APK, later slimmable to ~30MB (single CPU architecture) — the
+  lightweight constraint again giving a measurable lever.
+
+**Skills shown**: knowing when ops beats features, build-vs-buy reasoning, removing platform
+dependencies.
+
+---
+
+## Running feedback log (owner → product, chronological)
+
+| When | Feedback / instruction | Product response |
+|---|---|---|
+| Project start | Full spec with non-goals, lightweight constraint, forgiving-game values | CLAUDE.md — the contract everything else tests against |
+| Pre-build | "Two agents debate the plan first" | Architecture locked via adversarial review (Step 1) |
+| Early dev | "Set up GitHub before building" | Version control + remote backup from commit 1 |
+| Early dev | "Minimize token spend" | Standing efficiency instruction, saved to persistent memory |
+| Mid-dev | "Plan + progress files" | PLAN.md / PROGRESS.md — roadmap and status as living artifacts |
+| Post-Phase-1 | "Docs so any LLM can work safely" | 5-doc management system (Step 3) |
+| First usage | 4 feature feedbacks + 2 trust questions (Step 4) | Phase 1.5 resequencing, spec amendments |
+| First usage | "I want an APK now, not Expo" | Local build toolchain, N1 shipped same day |
+| Post-APK | "Maintain a case-study file for PM storytelling" | This document |
+
+---
+
+## LinkedIn post seeds
+
+1. **"I made two AIs argue for an hour before letting either write code."** Adversarial planning
+   as a PM de-risking tool; convergence-from-opposite-priors as decision evidence.
+2. **"My user rejected a feature the whole economy depended on. We shipped his ask without
+   touching the economy."** Hide-don't-delete; hearing the complaint behind the complaint.
+3. **"The most dangerous feedback is the kind you agree with."** Stats-first resequencing — how
+   phasing let both the user's urgency and the data-model dependency win.
+4. **"Docs are how you manage a team with amnesia."** Running AI agents like a workforce:
+   conventions, gotchas, decision logs.
+5. **"An app that needs my laptop isn't a product."** Why distribution jumped the feature queue.
+6. **"Write your non-goals first."** The unbuilt features that kept this project shippable.
+
+---
+
+*Maintenance note: append a new Step section after every major milestone or owner-feedback
+round — capture the decision, the why, and the verbatim feedback while fresh.*

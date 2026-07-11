@@ -15,6 +15,7 @@ backend, no accounts, no network calls — everything lives in on-device SQLite.
 | [DECISIONS.md](DECISIONS.md) | Why things are the way they are. Do not undo these without the owner asking | Before proposing refactors |
 | [PLAN.md](PLAN.md) | Milestone plan (M0–M9 + Phases 2–3) | When starting new feature work |
 | [PROGRESS.md](PROGRESS.md) | What's done, what's next, known debt. **Update it when you complete a milestone** | Start and end of every work session |
+| [CASESTUDY.md](CASESTUDY.md) | PM-facing dev log: decisions, rationale, owner feedback per step. **Append after every milestone / feedback round** | After milestones and owner feedback |
 
 ## Quick start
 
