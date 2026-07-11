@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SkillChips } from './SkillChips';
+import { useSkillStore } from '../store/useSkillStore';
 import { colors, glow, radii, spacing } from '../constants/theme';
 import type { Schedule, TaskType } from '../types';
 import type { NewTask } from '../db/queries/tasks';
@@ -7,7 +9,7 @@ import type { NewTask } from '../db/queries/tasks';
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // index = Date.getDay()
 
 interface Props {
-  onAdd(input: NewTask): void;
+  onAdd(input: NewTask, skillIds: string[]): void;
 }
 
 // §2 fast capture, reworked per Phase 1.5: title is the only required field.
@@ -19,6 +21,8 @@ export function FastCapture({ onAdd }: Props) {
   const [days, setDays] = useState<number[]>([]); // empty = daily
   const [counted, setCounted] = useState(false);
   const [target, setTarget] = useState('');
+  const [skillIds, setSkillIds] = useState<string[]>([]);
+  const orderedSkills = useSkillStore((s) => s.orderedSkills());
 
   const submit = () => {
     const trimmed = title.trim();
@@ -30,13 +34,17 @@ export function FastCapture({ onAdd }: Props) {
       : null;
     const targetCount = counted ? Math.max(1, parseInt(target, 10) || 1) : null;
     const type: TaskType = counted ? 'counted' : repeat ? 'habit' : 'todo';
-    onAdd({ title: trimmed, difficulty: 'medium', type, schedule, targetCount });
+    onAdd({ title: trimmed, difficulty: 'medium', type, schedule, targetCount }, skillIds);
     setTitle('');
     setRepeat(false);
     setDays([]);
     setCounted(false);
     setTarget('');
+    setSkillIds([]);
   };
+
+  const toggleSkill = (id: string) =>
+    setSkillIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
@@ -52,6 +60,7 @@ export function FastCapture({ onAdd }: Props) {
         onSubmitEditing={submit}
         returnKeyType="done"
       />
+      <SkillChips skills={orderedSkills} selected={skillIds} onToggle={toggleSkill} />
       <View style={styles.row}>
         <Pressable
           onPress={() => setRepeat(!repeat)}

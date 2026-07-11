@@ -1,4 +1,4 @@
-import { levelForTotalXp, levelProgress, xpForDifficulty, xpRequiredForLevel } from '../xp';
+import { levelForTotalXp, levelProgress, splitSkillXp, xpForDifficulty, xpRequiredForLevel } from '../xp';
 
 // §7 table, verbatim
 const GOLDEN: Array<[level: number, cumulativeXp: number]> = [
@@ -45,6 +45,19 @@ describe('levelForTotalXp', () => {
     expect(levelForTotalXp(xp - 1)).toBe(level - 1);
     expect(levelForTotalXp(xp)).toBe(level);
     expect(levelForTotalXp(xp + 1)).toBe(level);
+  });
+});
+
+describe('splitSkillXp', () => {
+  it('splits evenly with rounding (§7: 25 XP / 2 skills ≈ 13 each)', () => {
+    expect(splitSkillXp(25, 1)).toBe(25);
+    expect(splitSkillXp(25, 2)).toBe(13);
+    expect(splitSkillXp(25, 3)).toBe(8);
+    expect(splitSkillXp(100, 4)).toBe(25);
+  });
+  it('returns 0 for untagged tasks or zero-XP entries', () => {
+    expect(splitSkillXp(25, 0)).toBe(0);
+    expect(splitSkillXp(0, 2)).toBe(0);
   });
 });
 

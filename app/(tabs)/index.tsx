@@ -2,6 +2,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { FastCapture } from '../../src/components/FastCapture';
 import { TaskCard } from '../../src/components/TaskCard';
 import { useTaskStore } from '../../src/store/useTaskStore';
+import { useSkillStore } from '../../src/store/useSkillStore';
 import { isScheduledDay } from '../../src/engine/time';
 import { colors, spacing } from '../../src/constants/theme';
 import type { Task } from '../../src/types';
@@ -37,7 +38,10 @@ export default function TodayScreen() {
   const today = new Date();
   const todayTasks = tasks.filter((t) => !t.schedule || isScheduledDay(t.schedule, today));
 
-  const onAdd = (input: NewTask) => void addTask(input, new Date());
+  const onAdd = (input: NewTask, skillIds: string[]) =>
+    void addTask(input, new Date()).then((task) => {
+      if (skillIds.length) return useSkillStore.getState().tagTask(task.id, skillIds);
+    });
   const onComplete = (task: Task) => void completeTask(task, new Date());
   const onSkip = (task: Task) => void skipTask(task, new Date());
   const onUnskip = (task: Task) => void unskipTask(task, new Date());

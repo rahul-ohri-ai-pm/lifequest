@@ -6,6 +6,7 @@ import * as taskQueries from '../db/queries/tasks';
 import * as completionQueries from '../db/queries/completions';
 import * as skipQueries from '../db/queries/skips';
 import { useCharacterStore } from './useCharacterStore';
+import { useSkillStore } from './useSkillStore';
 import type { Completion, Skip, Task } from '../types';
 import type { NewTask, TaskPatch } from '../db/queries/tasks';
 
@@ -57,6 +58,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const { completion, character } = await completionQueries.logCompletion(task.id, xp, null, now);
     set({ completionsToday: [...get().completionsToday, completion] });
     useCharacterStore.getState().setFromPersisted(character);
+    void useSkillStore.getState().refreshSkills();
     return completion;
   },
 
@@ -71,6 +73,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const { completion, character } = await completionQueries.logCompletion(task.id, xp, amount, now);
     set({ completionsToday: [...get().completionsToday, completion] });
     useCharacterStore.getState().setFromPersisted(character);
+    void useSkillStore.getState().refreshSkills();
     return completion;
   },
 
@@ -78,6 +81,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const character = await completionQueries.undoCompletion(completionId, now);
     set({ completionsToday: get().completionsToday.filter((c) => c.id !== completionId) });
     useCharacterStore.getState().setFromPersisted(character);
+    void useSkillStore.getState().refreshSkills();
   },
 
   // §4 Skip: explicit "chose not to do it today" — stats-only, no XP

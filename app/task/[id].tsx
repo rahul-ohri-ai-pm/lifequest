@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from '../../src/store/useTaskStore';
+import { useSkillStore } from '../../src/store/useSkillStore';
+import { SkillChips } from '../../src/components/SkillChips';
 import { addDays, dateFromDayKey, dayKeyFor } from '../../src/engine/time';
 import { colors, difficultyColors, glow, radii, spacing } from '../../src/constants/theme';
 import type { Difficulty, Schedule } from '../../src/types';
@@ -26,6 +28,11 @@ export default function TaskDetailScreen() {
   const [target, setTarget] = useState(task?.targetCount ? String(task.targetCount) : '');
   const [due, setDue] = useState(task?.dueAt ? dayKeyFor(new Date(task.dueAt)) : '');
   const [saved, setSaved] = useState(false);
+  const skills = useSkillStore((s) => s.skills);
+  const tagTask = useSkillStore((s) => s.tagTask);
+  const [skillIds, setSkillIds] = useState<string[]>(
+    useSkillStore.getState().taskSkills[id ?? ''] ?? []
+  );
 
   if (!task) {
     return (
@@ -59,6 +66,7 @@ export default function TaskDetailScreen() {
       },
       new Date()
     );
+    await tagTask(task.id, skillIds);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -94,6 +102,15 @@ export default function TaskDetailScreen() {
           multiline
           placeholder="Optional"
           placeholderTextColor={colors.textSecondary}
+        />
+
+        <Text style={styles.label}>Categories (XP splits across them)</Text>
+        <SkillChips
+          skills={skills}
+          selected={skillIds}
+          onToggle={(sid) =>
+            setSkillIds((prev) => (prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid]))
+          }
         />
 
         <Text style={styles.label}>Difficulty</Text>

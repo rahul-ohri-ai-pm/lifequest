@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { getDb } from '../src/db/client';
 import { runMigrations } from '../src/db/migrations';
 import { useCharacterStore } from '../src/store/useCharacterStore';
+import { useSkillStore } from '../src/store/useSkillStore';
 import { useTaskStore } from '../src/store/useTaskStore';
 import { colors } from '../src/constants/theme';
 
@@ -20,6 +21,7 @@ export default function RootLayout() {
         await Promise.all([
           useCharacterStore.getState().hydrate(),
           useTaskStore.getState().hydrate(new Date()),
+          useSkillStore.getState().hydrate(),
         ]);
         setReady(true);
       } catch (e) {

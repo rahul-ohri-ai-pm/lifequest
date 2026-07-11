@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { getDb } from '../client';
-import { levelForTotalXp } from '../../engine/xp';
+import { levelForTotalXp, splitSkillXp } from '../../engine/xp';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { rowToCharacter } from './character';
 import type { Character, Completion } from '../../types';
 
@@ -52,6 +53,34 @@ export interface CompletionResult {
   character: Character;
 }
 
+// §7: character gets full XP; each tagged skill gets Math.round(xp / tagCount).
+// Runs inside the caller's exclusive transaction. `sign` is +1 (award) or -1 (undo).
+// Undo uses the task's tags at undo time — undo is a same-day action, so tag
+// drift between log and undo is accepted (see DECISIONS.md D13).
+async function applySkillXp(txn: SQLiteDatabase, taskId: string, xpAwarded: number, sign: 1 | -1): Promise<void> {
+  if (xpAwarded === 0) return;
+  const tags = await txn.getAllAsync<{ skill_id: string }>(
+    'SELECT skill_id FROM task_skills WHERE task_id = ?',
+    taskId
+  );
+  if (!tags.length) return;
+  const share = splitSkillXp(xpAwarded, tags.length) * sign;
+  for (const tag of tags) {
+    const skill = await txn.getFirstAsync<{ total_xp: number }>(
+      'SELECT total_xp FROM skills WHERE id = ?',
+      tag.skill_id
+    );
+    if (!skill) continue;
+    const totalXp = skill.total_xp + share;
+    await txn.runAsync(
+      'UPDATE skills SET total_xp = ?, level = ? WHERE id = ?',
+      totalXp,
+      levelForTotalXp(totalXp),
+      tag.skill_id
+    );
+  }
+}
+
 // Atomic: completion insert + character XP/level update in one exclusive transaction.
 // xpAwarded is computed by the caller via src/engine (queries stay thin).
 export async function logCompletion(
@@ -86,6 +115,7 @@ export async function logCompletion(
       levelForTotalXp(totalXp),
       iso
     );
+    await applySkillXp(txn, taskId, xpAwarded, 1);
     const cRow = await txn.getFirstAsync<CompletionRow>('SELECT * FROM completions WHERE id = ?', id);
     const charRow = await txn.getFirstAsync<CharacterRow>('SELECT * FROM character WHERE id = 1');
     completion = rowToCompletion(cRow!);
@@ -117,6 +147,7 @@ export async function undoCompletion(completionId: string, now: Date): Promise<C
       levelForTotalXp(totalXp),
       now.toISOString()
     );
+    await applySkillXp(txn, row.task_id, row.xp_awarded, -1);
     const charRow = await txn.getFirstAsync<CharacterRow>('SELECT * FROM character WHERE id = 1');
     character = rowToCharacter(charRow!);
   });

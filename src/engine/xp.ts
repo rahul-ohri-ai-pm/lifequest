@@ -16,6 +16,12 @@ export function levelForTotalXp(totalXp: number): number {
   return level;
 }
 
+// §7: skill XP is split evenly across all tagged skills; character always gets full XP.
+export function splitSkillXp(taskXp: number, tagCount: number): number {
+  if (tagCount <= 0) return 0;
+  return Math.round(taskXp / tagCount);
+}
+
 // XP still needed to reach the next level, and progress within the current step (for XP bars)
 export function levelProgress(totalXp: number): {
   level: number;
