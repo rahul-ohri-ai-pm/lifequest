@@ -49,8 +49,8 @@ export interface ScheduledOutcomes {
   missed: number; // past scheduled days with neither completion nor skip
 }
 
-// Outcomes for scheduled (habit) tasks over the last `days` days. Days before a task
-// was created don't count against it; today is never counted as missed.
+// Outcomes for scheduled tasks (any type with a schedule) over the last `days` days.
+// Days before a task was created don't count against it; today is never counted as missed.
 export function scheduledOutcomes(
   tasks: Task[],
   completions: Completion[],
@@ -58,7 +58,7 @@ export function scheduledOutcomes(
   days: number,
   today: Date
 ): ScheduledOutcomes {
-  const habits = tasks.filter((t) => t.type === 'habit' && t.schedule && t.status === 'active');
+  const habits = tasks.filter((t) => t.schedule && t.status === 'active');
   const doneSet = new Set(completions.map((c) => `${c.taskId}|${completionDayKey(c)}`));
   const skipSet = new Set(skips.map((s) => `${s.taskId}|${s.day}`));
   const todayKey = dayKeyFor(today);

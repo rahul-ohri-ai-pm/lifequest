@@ -32,11 +32,10 @@ export default function TodayScreen() {
       ? (progressByTask.get(t.id) ?? 0) >= t.targetCount
       : completedTaskIds.has(t.id);
 
-  // Today view (§4): todos and counted always; habits only on their scheduled days
+  // Today view (§4, Phase 1.5): schedule is orthogonal — any task with a
+  // schedule appears only on its scheduled days; unscheduled tasks always show
   const today = new Date();
-  const todayTasks = tasks.filter(
-    (t) => t.type !== 'habit' || !t.schedule || isScheduledDay(t.schedule, today)
-  );
+  const todayTasks = tasks.filter((t) => !t.schedule || isScheduledDay(t.schedule, today));
 
   const onAdd = (input: NewTask) => void addTask(input, new Date());
   const onComplete = (task: Task) => void completeTask(task, new Date());

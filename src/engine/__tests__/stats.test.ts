@@ -85,11 +85,18 @@ describe('scheduledOutcomes', () => {
     expect(out.missed).toBe(1);
   });
 
-  it('ignores non-habit and archived tasks', () => {
+  it('ignores unscheduled and archived tasks', () => {
     const todo = { ...habit('t1', 'daily'), type: 'todo' as const, schedule: null };
     const archived = { ...habit('h3', 'daily'), status: 'archived' as const };
     const out = scheduledOutcomes([todo, archived], [], [], 7, TODAY);
     expect(out.scheduled).toBe(0);
+  });
+
+  it('counts scheduled counted tasks too (schedule is orthogonal to type)', () => {
+    const countedHabit = { ...habit('c1', [1, 3, 5]), type: 'counted' as const, targetCount: 8 };
+    const out = scheduledOutcomes([countedHabit], [completion('c1', 2026, 6, 6)], [], 7, TODAY);
+    expect(out.scheduled).toBe(3); // Mon 6, Wed 8, Fri 10
+    expect(out.done).toBe(1);
   });
 });
 

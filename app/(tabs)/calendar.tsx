@@ -30,7 +30,7 @@ export default function CalendarScreen() {
   const tasksForDay = (dayKey: string): Task[] => {
     const date = dateFromDayKey(dayKey);
     return tasks.filter((t) => {
-      const scheduled = t.type === 'habit' && t.schedule && isScheduledDay(t.schedule, date);
+      const scheduled = t.schedule && isScheduledDay(t.schedule, date);
       const due = t.dueAt && dayKeyFor(new Date(t.dueAt)) === dayKey;
       return scheduled || due;
     });

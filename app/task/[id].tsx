@@ -39,8 +39,10 @@ export default function TaskDetailScreen() {
   const canSave = title.trim().length > 0 && dueValid;
 
   const onSave = async () => {
+    // habits always have a schedule (empty days = daily); counted tasks keep
+    // theirs editable if present (schedule is orthogonal, Phase 1.5); todos none
     const schedule: Schedule | null =
-      task.type === 'habit'
+      task.type === 'habit' || (task.type === 'counted' && task.schedule)
         ? days.length
           ? { freq: 'custom', days: [...days].sort() }
           : { freq: 'daily' }
@@ -111,7 +113,7 @@ export default function TaskDetailScreen() {
           ))}
         </View>
 
-        {task.type === 'habit' && (
+        {(task.type === 'habit' || (task.type === 'counted' && task.schedule != null)) && (
           <>
             <Text style={styles.label}>Scheduled days {days.length ? '' : '(every day)'}</Text>
             <View style={styles.row}>
