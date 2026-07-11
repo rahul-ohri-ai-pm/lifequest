@@ -3,6 +3,7 @@ import {
   distinctActiveDays,
   lastNDayCounts,
   scheduledOutcomes,
+  skillBreakdown,
   topTasks,
   xpOnDay,
 } from '../stats';
@@ -112,6 +113,33 @@ describe('topTasks', () => {
     const out = topTasks(cs, 30, TODAY, 2);
     expect(out.map((t) => t.taskId)).toEqual(['a', 'b']);
     expect(out[0]).toEqual({ taskId: 'a', count: 2, xp: 10 });
+  });
+});
+
+describe('topTasks with null days', () => {
+  it('includes all history', () => {
+    const cs = [completion('old', 2025, 0, 1, 100), completion('new', 2026, 6, 11, 5)];
+    expect(topTasks(cs, null, TODAY).map((t) => t.taskId)).toEqual(['old', 'new']);
+  });
+});
+
+describe('skillBreakdown', () => {
+  const links = [
+    { taskId: 'a', skillId: 'fitness' },
+    { taskId: 'a', skillId: 'social' }, // task a tagged with 2 skills
+    { taskId: 'b', skillId: 'fitness' },
+  ];
+  it('splits XP across tags and aggregates per skill', () => {
+    const cs = [completion('a', 2026, 6, 11, 25), completion('b', 2026, 6, 10, 10)];
+    const out = skillBreakdown(cs, links, 30, TODAY);
+    // fitness: 13 (a's split) + 10 (b) = 23 over 2 completions; social: 13 over 1
+    expect(out[0]).toEqual({ skillId: 'fitness', count: 2, xp: 23 });
+    expect(out[1]).toEqual({ skillId: 'social', count: 1, xp: 13 });
+  });
+  it('ignores untagged completions and respects the window', () => {
+    const cs = [completion('untagged', 2026, 6, 11, 50), completion('a', 2025, 0, 1, 25)];
+    expect(skillBreakdown(cs, links, 30, TODAY)).toEqual([]);
+    expect(skillBreakdown(cs, links, null, TODAY)).toHaveLength(2); // all-time includes old
   });
 });
 

@@ -1,6 +1,7 @@
 // Pure aggregations over completion/skip/task rows — computed on read, never stored (§4).
 import type { Completion, Skip, Task } from '../types';
 import { addDays, dayKeyFor, isScheduledDay } from './time';
+import { splitSkillXp } from './xp';
 
 export interface DayCount {
   dayKey: string;
@@ -85,12 +86,12 @@ export interface TaskStat {
   xp: number;
 }
 
-// Most-completed tasks in the last `days` days, by completion count then XP.
-export function topTasks(completions: Completion[], days: number, today: Date, limit = 5): TaskStat[] {
-  const from = dayKeyFor(addDays(today, -(days - 1)));
+// Most-completed tasks in the last `days` days (null = all time), by count then XP.
+export function topTasks(completions: Completion[], days: number | null, today: Date, limit = 5): TaskStat[] {
+  const from = days === null ? null : dayKeyFor(addDays(today, -(days - 1)));
   const byTask = new Map<string, TaskStat>();
   for (const c of completions) {
-    if (completionDayKey(c) < from) continue;
+    if (from !== null && completionDayKey(c) < from) continue;
     const stat = byTask.get(c.taskId) ?? { taskId: c.taskId, count: 0, xp: 0 };
     stat.count++;
     stat.xp += c.xpAwarded;
@@ -99,6 +100,44 @@ export function topTasks(completions: Completion[], days: number, today: Date, l
   return [...byTask.values()]
     .sort((a, b) => b.count - a.count || b.xp - a.xp)
     .slice(0, limit);
+}
+
+export interface SkillAgg {
+  skillId: string;
+  count: number; // completions of tasks tagged with this skill
+  xp: number; // this skill's share (§7 split rule) of that XP
+}
+
+// Per-skill completion/XP aggregation. `days` null = all time. XP attribution uses
+// the tasks' CURRENT tags — stats are derived on read (§4), so retagging a task
+// re-attributes its history by design.
+export function skillBreakdown(
+  completions: Completion[],
+  links: Array<{ taskId: string; skillId: string }>,
+  days: number | null,
+  today: Date
+): SkillAgg[] {
+  const tagsByTask = new Map<string, string[]>();
+  for (const l of links) {
+    const arr = tagsByTask.get(l.taskId) ?? [];
+    arr.push(l.skillId);
+    tagsByTask.set(l.taskId, arr);
+  }
+  const from = days === null ? null : dayKeyFor(addDays(today, -(days - 1)));
+  const agg = new Map<string, SkillAgg>();
+  for (const c of completions) {
+    if (from !== null && completionDayKey(c) < from) continue;
+    const tags = tagsByTask.get(c.taskId);
+    if (!tags?.length) continue;
+    const share = splitSkillXp(c.xpAwarded, tags.length);
+    for (const skillId of tags) {
+      const a = agg.get(skillId) ?? { skillId, count: 0, xp: 0 };
+      a.count++;
+      a.xp += share;
+      agg.set(skillId, a);
+    }
+  }
+  return [...agg.values()].sort((a, b) => b.xp - a.xp || b.count - a.count);
 }
 
 export function xpOnDay(completions: Completion[], day: Date): number {

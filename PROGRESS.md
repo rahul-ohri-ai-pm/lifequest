@@ -23,9 +23,9 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 |---|---|---|
 | N1 — Standalone APK | ✅ Done (2026-07-11) | Local toolchain (JDK 17 + SDK 36), `LifeQuest.apk` on Desktop (93MB universal; arm64-only ≈30MB). Build steps in README |
 | N2 — Stats dashboard v1 | ✅ Done (2026-07-11) `d956d43` | Today hero, 14-day chart, active days, habit follow-through %, top quests; 57 tests total |
-| N3 — Capture rework (no type/difficulty pickers) | ⬜ | |
-| N4 — Skills/categories + split XP | ⬜ | |
-| N5 — Stats v1.5 (per-category + date filters) | ⬜ | |
+| N3 — Capture rework (no type/difficulty pickers) | ✅ Done (2026-07-11) `4074b15` | Repeat/Target toggles, difficulty defaults medium (edit-screen only), schedule orthogonal everywhere |
+| N4 — Skills/categories + split XP | ✅ Done (2026-07-11) `919b5c7` | 0002 migration, 8 defaults, split XP in completion transactions, MRU chips on capture + edit |
+| N5 — Stats v1.5 (per-category + date filters) | ✅ Done (2026-07-11) | By-category panel (skill level/XP/count), 7d/30d/All filter on category + top-quests panels; 63 tests |
 
 ## Phase 2
 

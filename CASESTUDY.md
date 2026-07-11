@@ -159,6 +159,29 @@ dependencies.
 
 ---
 
+## Step 6 — Shipping the feedback round in one wave (N2–N5)
+
+**What happened**: The entire Phase 1.5 plan shipped in a single day: stats dashboard v1 (on
+existing data, zero migrations), capture rework (type picker and difficulty chips gone, replaced
+by two optional toggles), categories with one-tap MRU-ordered chips and split-XP, and the
+per-category stats view with 7d/30d/All filters. Each landed as its own verified, committed
+milestone; a fresh APK went to the user's phone the same day. Test count grew 48 → 63.
+
+**PM decisions & why**:
+- **Sequencing honored the promise**: stats (the user's #1) shipped *first*, before the data
+  model work, exactly as the debate synthesis committed. The generic panel design paid off — the
+  category view slotted into the dashboard with no rework.
+- **The user's four complaints were closed with only ONE schema migration** (skills). Difficulty
+  removal and the counted×habit fix were UI-layer changes because earlier data-model decisions
+  (nullable orthogonal columns, log-time XP) had left room. Good schema design is what makes
+  future feedback cheap.
+- **Release cadence as a feature**: same-day feedback→shipped-APK loop. For a single-user
+  product, iteration speed *is* the moat.
+
+**Skills shown**: commitment follow-through, migration cost control, release management.
+
+---
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |

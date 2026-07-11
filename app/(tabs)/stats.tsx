@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { BarList, StatPanel, TileRow } from '../../src/components/StatPanel';
 import { getAllCompletions } from '../../src/db/queries/completions';
 import { getAllSkips } from '../../src/db/queries/skips';
 import { useCharacterStore } from '../../src/store/useCharacterStore';
+import { useSkillStore } from '../../src/store/useSkillStore';
 import { useTaskStore } from '../../src/store/useTaskStore';
 import { levelProgress } from '../../src/engine/xp';
 import { isScheduledDay } from '../../src/engine/time';
@@ -13,17 +14,27 @@ import {
   distinctActiveDays,
   lastNDayCounts,
   scheduledOutcomes,
+  skillBreakdown,
   topTasks,
   xpOnDay,
 } from '../../src/engine/stats';
 import { colors, difficultyColors, spacing } from '../../src/constants/theme';
 import type { Completion, Skip } from '../../src/types';
 
+const RANGES = [
+  { label: '7d', days: 7 as number | null },
+  { label: '30d', days: 30 as number | null },
+  { label: 'All', days: null as number | null },
+];
+
 export default function StatsScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const character = useCharacterStore((s) => s.character);
+  const skills = useSkillStore((s) => s.skills);
+  const taskSkills = useSkillStore((s) => s.taskSkills);
   const [completions, setCompletions] = useState<Completion[]>([]);
   const [skips, setSkips] = useState<Skip[]>([]);
+  const [rangeIdx, setRangeIdx] = useState(1); // default 30d
 
   useFocusEffect(
     useCallback(() => {
@@ -47,14 +58,29 @@ export default function StatsScreen() {
   const max14 = Math.max(...days14.map((d) => d.count), 1);
   const rate = scheduledOutcomes(tasks, completions, skips, 30, now);
   const ratePct = rate.scheduled ? Math.round((rate.done / rate.scheduled) * 100) : null;
+  const range = RANGES[rangeIdx];
   const taskById = new Map(tasks.map((t) => [t.id, t]));
-  const top = topTasks(completions, 30, now).map((s) => {
+  const top = topTasks(completions, range.days, now).map((s) => {
     const task = taskById.get(s.taskId);
     return {
       label: task?.title ?? 'Archived task',
       value: s.count,
       color: task ? difficultyColors[task.difficulty] : colors.textSecondary,
       detail: `${s.count}× · ${s.xp} XP`,
+    };
+  });
+
+  const links = Object.entries(taskSkills).flatMap(([taskId, ids]) =>
+    ids.map((skillId) => ({ taskId, skillId }))
+  );
+  const skillById = new Map(skills.map((s) => [s.id, s]));
+  const byCategory = skillBreakdown(completions, links, range.days, now).map((agg) => {
+    const skill = skillById.get(agg.skillId);
+    return {
+      label: skill ? `${skill.name} · Lv ${skill.level}` : 'Unknown',
+      value: agg.xp,
+      color: skill?.color ?? colors.accent,
+      detail: `${agg.count}× · ${agg.xp} XP`,
     };
   });
 
@@ -122,7 +148,25 @@ export default function StatsScreen() {
         )}
       </StatPanel>
 
-      <StatPanel title="Top quests · 30 days">
+      <View style={styles.rangeRow}>
+        {RANGES.map((r, i) => (
+          <Pressable
+            key={r.label}
+            onPress={() => setRangeIdx(i)}
+            style={[styles.rangeChip, i === rangeIdx && styles.rangeChipActive]}
+          >
+            <Text style={[styles.rangeText, i === rangeIdx && { color: colors.accent }]}>
+              {r.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <StatPanel title={`By category · ${range.label}`}>
+        <BarList items={byCategory} emptyText="Tag tasks with categories to see XP per category." />
+      </StatPanel>
+
+      <StatPanel title={`Top quests · ${range.label}`}>
         <BarList items={top} emptyText="Complete something to see it here." />
       </StatPanel>
     </ScrollView>
@@ -151,4 +195,19 @@ const styles = StyleSheet.create({
   chartLabel: { color: colors.textSecondary, fontSize: 10 },
   ratePct: { color: colors.accent, fontSize: 36, fontWeight: 'bold' },
   hint: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  rangeRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  rangeChip: {
+    borderWidth: 1,
+    borderColor: colors.panel,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  rangeChipActive: { borderColor: colors.accent, backgroundColor: colors.accent + '22' },
+  rangeText: { color: colors.textSecondary, fontSize: 13 },
 });
