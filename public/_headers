@@ -2,5 +2,5 @@
 # the SQLite worker over SharedArrayBuffer). Read by Netlify / Cloudflare Pages.
 # GitHub Pages ignores this file — public/sw.js covers that case instead.
 /*
-  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Opener-Policy: same-origin

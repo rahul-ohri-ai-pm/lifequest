@@ -17,16 +17,18 @@
 
 const CACHE = 'lifequest-shell-v1';
 
-// COEP `credentialless` is what Expo documents for expo-sqlite on web. Every asset
-// this app loads is same-origin (no CDNs, no remote fonts — §5), so `require-corp`
-// would also work; credentialless is the more forgiving of the two.
+// Expo documents COEP `credentialless`, but `require-corp` is chosen here deliberately:
+// it has the wider browser support (notably older Safari/iOS, where credentialless landed
+// much later), and its stricter rule — every subresource must be same-origin or explicitly
+// opt in — costs this app nothing, because §5 already forbids CDNs and remote assets. If a
+// cross-origin resource is ever added, it needs CORP/CORS headers or this must change.
 function withIsolationHeaders(response) {
   // Opaque (status 0) and bodyless (204/304) responses can't be rebuilt.
   if (!response || response.status === 0 || response.status === 204 || response.status === 304) {
     return response;
   }
   const headers = new Headers(response.headers);
-  headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   return new Response(response.body, {
     status: response.status,
