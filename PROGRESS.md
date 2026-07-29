@@ -27,6 +27,18 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 | N4 — Skills/categories + split XP | ✅ Done (2026-07-11) `919b5c7` | 0002 migration, 8 defaults, split XP in completion transactions, MRU chips on capture + edit |
 | N5 — Stats v1.5 (per-category + date filters) | ✅ Done (2026-07-11) | By-category panel (skill level/XP/count), 7d/30d/All filter on category + top-quests panels; 63 tests |
 
+## Phase 1.6 (owner feedback round 2 — "the APK doesn't work, make it a web app")
+
+| Milestone | Status | Notes |
+|---|---|---|
+| W1 — Web app / installable PWA | ✅ Done (2026-07-29) | Same codebase runs in the browser: SQLite via WebAssembly + OPFS, service worker supplying cross-origin isolation + offline cache, PWA manifest/icons (installs to home screen), GitHub Pages deploy workflow. Verified in a real browser end-to-end — 13/13 checks (see below). Two shared-code bugs fixed on the way: no exclusive transactions on web (`src/db/transaction.ts`), and an infinite-re-render zustand selector |
+
+W1 verification (headless Chromium at phone viewport, served like GitHub Pages — subpath, no
+COOP/COEP headers): service worker takes control → page cross-origin isolated → SQLite-wasm opens
+→ migrations run → capture a quest → complete it → 25 XP awarded (§7 medium) → survives a full
+reload (OPFS) → launches with the network off → hard load of `/task/<uuid>` resolves → no page
+errors. All four tabs render with the glow-panel style intact.
+
 ## Phase 2
 
 | Item | Status |
@@ -49,5 +61,7 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 ## Known issues / tech debt
 
 - ~~expo-router default tabs bundle a 956KB Material Symbols font~~ — fixed in M9 (metro.config.js resolves the package to an empty module; custom SVG tabBarIcons everywhere)
+- Web entry bundle is 1.3MB (plus a 621KB SQLite wasm, fetched once and cached). Fine over HTTPS with a service worker, but it's the number to watch against the §3 lightweight rule — Phase 2/3 screens should keep leaning on Expo Router's per-route splitting
+- The web build has no automated regression test in CI yet: the browser end-to-end pass was run locally (scripted Playwright). The deploy workflow gates on typecheck + jest only. Worth adding if the web app becomes the only channel
 - `.npmrc` uses `legacy-peer-deps` (react-dom peer conflict in Expo SDK 57 tree) — revisit on SDK upgrade
 - jest pinned to 29.x for jest-expo 57 compatibility

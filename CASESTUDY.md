@@ -182,6 +182,40 @@ milestone; a fresh APK went to the user's phone the same day. Test count grew 48
 
 ---
 
+## Step 7 — "The APK doesn't work. Let's make it a web application."
+
+**What happened**: The standalone APK shipped in N1 (Step 5) — the milestone justified by "an app
+that needs my laptop isn't a product" — didn't run on the owner's phone. Rather than debug an
+Android build chain for a single-user app, the product pivoted distribution channels entirely: the
+same codebase now ships as an installable web app (PWA) served from GitHub Pages. Verified
+end-to-end in a real browser at phone viewport: 13/13 checks, including 25 XP awarded for a medium
+task, data surviving a full reload, and the app launching with the network switched off.
+
+**PM decisions & why**:
+- **Fix the channel, not the artifact.** The APK was a means to "use it on my phone without a
+  laptop." A URL delivers that better: two taps to install, self-updating, nothing to sideload, no
+  "allow unknown apps," no 93MB transfer. Debugging the APK would have restored a worse channel.
+- **The architecture is what made this a two-hour pivot instead of a rewrite.** `src/engine/` is
+  pure TypeScript with no React or platform imports (a §3 rule from day one), so 100% of the game
+  math moved to the browser untouched. Not one line of XP, level, or calendar logic changed.
+- **The hard part was one hidden constraint, found early.** SQLite-in-the-browser needs
+  `SharedArrayBuffer`, which needs security headers that GitHub Pages cannot send. Options were: pay
+  for a host that can set headers, or replace the storage layer on web. Both were rejected — a
+  70-line service worker supplies the headers itself, keeping hosting free *and* keeping one data
+  layer (a second storage backend would have forked the thing the app's correctness rests on).
+- **Two real bugs surfaced, and were fixed rather than papered over.** Web has no exclusive SQLite
+  transaction, and the tempting fix (a plain transaction) would have silently dropped the guarantee
+  the XP invariant depends on — so exclusivity was rebuilt explicitly for web instead. A second bug,
+  a store selector rebuilding an array on every render, was an infinite re-render loop that had been
+  latent in the native build all along. **New platforms are cheap audits.**
+- **Verification was scripted, not eyeballed.** A browser drove the real UI — capture, complete,
+  reload, offline, deep link — because "it looks fine on my machine" is what produced a broken APK.
+
+**Skills shown**: separating the goal from the artifact, choosing constraints over convenience,
+using architecture dividends, refusing correctness shortcuts under schedule pressure.
+
+---
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -195,6 +229,7 @@ milestone; a fresh APK went to the user's phone the same day. Test count grew 48
 | First usage | 4 feature feedbacks + 2 trust questions (Step 4) | Phase 1.5 resequencing, spec amendments |
 | First usage | "I want an APK now, not Expo" | Local build toolchain, N1 shipped same day |
 | Post-APK | "Maintain a case-study file for PM storytelling" | This document |
+| 2026-07-29 | "The APK doesn't work. Let's make it a web application" | Pivoted distribution to an installable PWA on GitHub Pages; W1 shipped and browser-verified same day (Step 7) |
 
 ---
 
@@ -210,6 +245,10 @@ milestone; a fresh APK went to the user's phone the same day. Test count grew 48
    conventions, gotchas, decision logs.
 5. **"An app that needs my laptop isn't a product."** Why distribution jumped the feature queue.
 6. **"Write your non-goals first."** The unbuilt features that kept this project shippable.
+7. **"My user said the app didn't work. I deleted the app, not the bug."** Fixing the distribution
+   channel instead of the artifact — and why "an APK" was never actually the requirement.
+8. **"Porting to a new platform is the cheapest code review you'll ever get."** A browser found an
+   infinite render loop that had been sitting in the shipped Android build for weeks.
 
 ---
 

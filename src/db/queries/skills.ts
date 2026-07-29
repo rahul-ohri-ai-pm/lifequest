@@ -1,4 +1,5 @@
 import { getDb } from '../client';
+import { withWriteTransaction } from '../transaction';
 import type { SkillDef } from '../../types';
 
 interface SkillRow {
@@ -45,7 +46,7 @@ export async function getAllTaskSkills(): Promise<TaskSkillLink[]> {
 // Replace a task's skill tags. Returns the persisted set.
 export async function setTaskSkills(taskId: string, skillIds: string[]): Promise<string[]> {
   const db = await getDb();
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await withWriteTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM task_skills WHERE task_id = ?', taskId);
     for (const skillId of skillIds) {
       await txn.runAsync('INSERT INTO task_skills (task_id, skill_id) VALUES (?, ?)', taskId, skillId);

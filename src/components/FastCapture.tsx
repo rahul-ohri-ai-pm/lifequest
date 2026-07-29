@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SkillChips } from './SkillChips';
-import { useSkillStore } from '../store/useSkillStore';
+import { orderSkillsByMru, useSkillStore } from '../store/useSkillStore';
 import { colors, glow, radii, spacing } from '../constants/theme';
 import type { Schedule, TaskType } from '../types';
 import type { NewTask } from '../db/queries/tasks';
@@ -22,7 +22,11 @@ export function FastCapture({ onAdd }: Props) {
   const [counted, setCounted] = useState(false);
   const [target, setTarget] = useState('');
   const [skillIds, setSkillIds] = useState<string[]>([]);
-  const orderedSkills = useSkillStore((s) => s.orderedSkills());
+  // Subscribe to the raw state and derive here: a selector returning a fresh array on every
+  // render loops forever under zustand v5 (see orderSkillsByMru).
+  const skills = useSkillStore((s) => s.skills);
+  const mru = useSkillStore((s) => s.mru);
+  const orderedSkills = useMemo(() => orderSkillsByMru(skills, mru), [skills, mru]);
 
   const submit = () => {
     const trimmed = title.trim();

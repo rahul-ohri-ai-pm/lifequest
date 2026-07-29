@@ -21,7 +21,8 @@ src/engine/     PURE TypeScript game math    — imports NOTHING but src/types. 
 | `src/engine/counted.ts` | `xpForCountedLog` — the one-award-per-day threshold rule |
 | `src/engine/calendar.ts` | `monthGrid(year, month)` — calendar screen's grid data |
 | `src/engine/__tests__/` | 48 tests. Every engine function is covered; keep it that way |
-| `src/db/client.ts` | `getDb()` singleton (async API, foreign_keys ON); dev-only `resetDb()` |
+| `src/db/client.ts` | `getDb()` singleton (async API, foreign_keys ON); dev-only `resetDb()`; web cross-origin-isolation precondition check |
+| `src/db/transaction.ts` | `withWriteTransaction()` / `runSerializedRead()` — the ONLY place platform differs. Real exclusive transaction on native; serialized promise chain on web, which has no exclusive transactions |
 | `src/db/migrations/index.ts` | Runner: applies pending migrations in version order, each in its own exclusive transaction |
 | `src/db/migrations/0001_init.ts` | Phase 1 schema (tasks, completions, skips, character, settings + indexes). SHIPPED — never edit |
 | `src/db/queries/tasks.ts` | Task CRUD + archive/unarchive. `NewTask`/`TaskPatch` input types live here |
@@ -40,7 +41,13 @@ src/engine/     PURE TypeScript game math    — imports NOTHING but src/types. 
 | `src/components/` | `FastCapture`, `TaskCard`, `icons` (inline SVG tab icons), `ScreenPlaceholder` |
 | `src/constants/theme.ts` | ALL colors/spacing/radii/glow tokens. Never hardcode a color in a screen |
 | `src/types/index.ts` | Domain types for all three phases (camelCase; DB rows are snake_case, mapped in queries) |
-| `metro.config.js` | Strips expo-router's 956KB default icon font — see GOTCHAS.md |
+| `metro.config.js` | Strips expo-router's 956KB default icon font; adds `wasm` to assetExts for SQLite-on-web — see GOTCHAS.md |
+| `app/+html.tsx` | Web-only document shell: PWA metadata, service-worker registration, no-flash dark background. Never reaches the native bundle |
+| `public/sw.js` | Service worker: supplies COOP/COEP (cross-origin isolation, required by SQLite-wasm) and caches the shell for offline launch |
+| `public/manifest.webmanifest`, `public/icon-*.png` | PWA install metadata + home-screen icons |
+| `public/_headers` | Same headers for hosts that can set them (Netlify/Cloudflare); GitHub Pages ignores it |
+| `scripts/finalize-web-export.mjs` | Post-export: writes `.nojekyll` (GitHub Pages would otherwise 404 all of `_expo/`) and `404.html` (SPA fallback for dynamic routes) |
+| `.github/workflows/deploy-web.yml` | Push to `main` → typecheck + tests + build → publish `dist/` to GitHub Pages |
 
 ## Data flow — every mutation follows the same shape
 
@@ -84,7 +91,23 @@ day to an ISO range for SQL `BETWEEN`-style queries; `dayKeyFor(date)` produces 
 
 ## Current DB schema
 
-`schema_migrations`, `tasks`, `completions`, `skips`, `character` (singleton), `settings` — the
-Phase 1 subset of the target schema in CLAUDE.md §4. Phase 2/3 tables (`skills`, `task_skills`,
-`streaks`, `streak_resets`, `badge_unlocks`, `goals`) do NOT exist yet; they arrive with their
-features as new migration files.
+`schema_migrations`, `tasks`, `completions`, `skips`, `character` (singleton), `settings` (migration
+`0001_init`), plus `skills` and `task_skills` (migration `0002_skills`, shipped with categories in
+N4). The remaining Phase 2/3 tables (`streaks`, `streak_resets`, `badge_unlocks`, `goals`) do NOT
+exist yet; they arrive with their features as new migration files.
+
+## Platforms
+
+One codebase, three targets (Android, iOS, web). The web build is an installable PWA and is the
+primary channel the owner uses — see README for build/deploy.
+
+**What differs on web, and where**: exactly one file, `src/db/transaction.ts`. expo-sqlite's web
+build runs SQLite as WebAssembly in a worker, persisting to the browser's OPFS storage, and has no
+exclusive transactions — so that module provides the exclusivity the XP invariant needs (real
+exclusive transaction on native, serialized promise chain on web). Everything else — `src/engine/`,
+the queries, the stores, every screen — is platform-agnostic and untouched.
+
+**What web needs from its host**: cross-origin isolation, because `SharedArrayBuffer` is how the
+page talks to the SQLite worker. `public/sw.js` supplies the headers itself so the app can be hosted
+on GitHub Pages, which cannot set them. This is why the first page visit reloads once, and why the
+app cannot run over plain HTTP or in a private window (GOTCHAS 12–17).

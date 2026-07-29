@@ -51,3 +51,42 @@ during initial development; undoing them re-breaks the project.
 11. **Dev database reset**: there is no UI reset button yet (planned Settings item). During
     development, use `resetDb()` from `src/db/client.ts` or clear the Expo Go app data. Never
     hand-delete the SQLite file on a real device.
+
+11b. **`eslint` is pinned to 9.x, NOT 10.** The repo originally pinned `^10.6.0`, under which
+    `npm run lint` crashes outright inside `eslint-plugin-react`'s version detection (not a lint
+    error — a stack trace). `expo lint` corrects the pin to 9.x on its own; that's the working
+    combination for the SDK 57 tree. Don't "upgrade" it back.
+
+## Web / PWA target (added with the web build)
+
+12. **`withExclusiveTransactionAsync` does not exist on web — never call it directly.** expo-sqlite
+    throws outright: the web build is one worker behind one connection. Use
+    `withWriteTransaction()` from `src/db/transaction.ts`, which uses the real exclusive
+    transaction on native and a serialized promise chain on web. Do NOT "fix" a web transaction
+    error by switching to `withTransactionAsync` — that silently drops the non-interleaving
+    guarantee the XP invariant (#7) depends on.
+
+13. **A zustand selector must never return a freshly-built object or array.**
+    `useSkillStore((s) => s.orderedSkills())` built a new array per render; zustand v5 has no
+    built-in equality check, so React saw a new snapshot every time → infinite re-render loop
+    (React error #185, which only surfaced on web). Subscribe to raw state and `useMemo` the
+    derivation, as `FastCapture` does with `orderSkillsByMru`.
+
+14. **`public/sw.js` is load-bearing, not an optimization.** SQLite-wasm needs
+    `SharedArrayBuffer`, which the browser only grants a cross-origin-isolated page, which needs
+    COOP/COEP *response headers* that GitHub Pages cannot set. The service worker supplies them
+    (and caches the shell for offline). Consequences: the app cannot run over plain HTTP or in a
+    private window where workers are blocked, and the very first visit reloads once by design —
+    that's the worker taking control. `src/db/client.ts` explains this in the failure message.
+
+15. **`web.output` must stay `"static"`.** Under `"single"`, Expo ignores `app/+html.tsx` and emits
+    its own barebones template — you silently lose the manifest link, the worker registration, and
+    the dark no-flash background.
+
+16. **`wasm` is added to `metro.config.js` `assetExts` for expo-sqlite.** Without it the SQLite
+    worker's `import ... from './wa-sqlite.wasm'` fails to resolve. Harmless on native.
+
+17. **GitHub Pages needs `.nojekyll`, or the whole app 404s.** Jekyll refuses to serve paths
+    starting with an underscore and every bundle lives under `_expo/static/`.
+    `scripts/finalize-web-export.mjs` writes it (plus `404.html` for dynamic-route deep links) —
+    it runs as part of `npm run build:web`, so don't call `expo export` alone for a deploy.

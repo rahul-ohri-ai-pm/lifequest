@@ -34,6 +34,12 @@ but that feature is explicitly out of scope until the user asks for it.
 ## 3. Tech Stack
 
 - **React Native + Expo (managed workflow)**, TypeScript strict mode
+- **Targets: Android/iOS *and* web** (amended 2026-07-29). The web build is an installable PWA and is
+  now the primary way the app is used — the same `app/`, `src/engine/`, and `src/db/` code, with
+  SQLite running as WebAssembly against the browser's on-device OPFS storage. This does not soften
+  §2: after first load there are still zero network calls, zero accounts, and no server holding any
+  data. Platform differences are confined to `src/db/` (see `src/db/transaction.ts`) — never to
+  `src/engine/`
 - **expo-sqlite** for persistence, with a small hand-rolled numbered-migration system (no ORM —
   the schema is 6-8 tables, not worth the codegen overhead)
 - **Zustand** for app state, with SQLite as the source of truth (stores are a cache/projection of
@@ -409,6 +415,8 @@ Leveling up (character or skill) triggers a celebration animation (Phase 3 polis
 
 ```bash
 npx expo start              # run the dev server
+npm run web                 # run in a browser (dev)
+npm run build:web           # production web build into dist/ (deployed to GitHub Pages)
 npm test                    # jest — engine unit tests + component tests
 npm run typecheck           # tsc --noEmit
 npm run lint                # eslint

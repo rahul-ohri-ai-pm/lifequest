@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { getDb } from '../client';
+import { runSerializedRead, withWriteTransaction } from '../transaction';
 import { levelForTotalXp, splitSkillXp } from '../../engine/xp';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { rowToCharacter } from './character';
@@ -32,15 +33,19 @@ interface CharacterRow {
 }
 
 // Invariant (§4): character.total_xp must always equal SUM(completions.xp_awarded).
+// Serialized so that on web (single shared connection) it can't read between another
+// writer's completion INSERT and its character UPDATE and report a phantom violation.
 async function assertXpInvariant(): Promise<void> {
   if (!__DEV__) return;
   const db = await getDb();
-  const sum = await db.getFirstAsync<{ s: number | null }>(
-    'SELECT SUM(xp_awarded) AS s FROM completions'
-  );
-  const char = await db.getFirstAsync<{ total_xp: number }>(
-    'SELECT total_xp FROM character WHERE id = 1'
-  );
+  const { sum, char } = await runSerializedRead(async () => ({
+    sum: await db.getFirstAsync<{ s: number | null }>(
+      'SELECT SUM(xp_awarded) AS s FROM completions'
+    ),
+    char: await db.getFirstAsync<{ total_xp: number }>(
+      'SELECT total_xp FROM character WHERE id = 1'
+    ),
+  }));
   if ((sum?.s ?? 0) !== char?.total_xp) {
     throw new Error(
       `XP invariant violated: SUM(xp_awarded)=${sum?.s ?? 0} but character.total_xp=${char?.total_xp}`
@@ -95,7 +100,7 @@ export async function logCompletion(
   let completion: Completion | undefined;
   let character: Character | undefined;
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await withWriteTransaction(db, async (txn) => {
     await txn.runAsync(
       `INSERT INTO completions (id, task_id, completed_at, progress_count, xp_awarded, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -131,7 +136,7 @@ export async function undoCompletion(completionId: string, now: Date): Promise<C
   const db = await getDb();
   let character: Character | undefined;
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await withWriteTransaction(db, async (txn) => {
     const row = await txn.getFirstAsync<CompletionRow>(
       'SELECT * FROM completions WHERE id = ?',
       completionId

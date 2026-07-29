@@ -52,6 +52,22 @@ Repeat/Target toggles (schedule valid on any type, no table rebuild); skills pul
 Spec amendments to CLAUDE.md: §7 (default difficulty), §4 (capture form, orthogonal
 schedule/target), §10 (resequencing). Streaks/badges remain Phase 2.
 
+## Phase 1.6 — owner feedback round 2 (2026-07-29): "the APK doesn't work, make it a web app"
+
+Distribution jumped the queue again. The self-built APK never ran on the owner's device, and every
+iteration cost a laptop plus a 93MB sideload. The web build reaches the same phone through a URL and
+installs to the home screen, so the feedback loop stops depending on a toolchain.
+
+- **W1 — Web app / installable PWA**: `react-native-web` runtime, `expo-sqlite` on WebAssembly +
+  OPFS, service worker for cross-origin isolation *and* offline caching, PWA manifest + icons,
+  `output: "static"` export with `app/+html.tsx`, GitHub Pages deploy workflow. Shipped with two
+  shared-code fixes surfaced by the browser: web has no exclusive SQLite transactions
+  (`src/db/transaction.ts` now owns that difference) and a zustand selector was rebuilding an array
+  every render (infinite loop under React 19)
+
+Nothing in `src/engine/` changed — the game math was already platform-free, which is what made this
+a distribution task rather than a rewrite. Native (Expo Go + APK) stays fully supported.
+
 ## Phase 2 (repeat M1→M3 pattern per feature)
 
 1. `streaks.ts` table-tested (schedule × completion × skip permutations) **before** streak UI

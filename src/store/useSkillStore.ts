@@ -5,6 +5,19 @@ import type { SkillDef } from '../types';
 
 const MRU_KEY = 'skill_mru';
 
+// Pure, exported so components can memoize it against the raw state they subscribe to.
+// A selector that *calls* orderedSkills() hands React a brand-new array on every render,
+// which zustand v5 (useSyncExternalStore, no built-in equality check) reads as "the store
+// changed" — an infinite re-render loop. It surfaced as React error #185 on web.
+export function orderSkillsByMru(skills: SkillDef[], mru: string[]): SkillDef[] {
+  const rank = new Map(mru.map((id, i) => [id, i]));
+  return [...skills].sort((a, b) => {
+    const ra = rank.get(a.id) ?? Infinity;
+    const rb = rank.get(b.id) ?? Infinity;
+    return ra - rb || a.name.localeCompare(b.name);
+  });
+}
+
 interface SkillState {
   skills: SkillDef[];
   taskSkills: Record<string, string[]>; // taskId -> skillIds
@@ -48,13 +61,10 @@ export const useSkillStore = create<SkillState>((set, get) => ({
     }
   },
 
+  // Imperative callers only (getState().orderedSkills()). Inside a component, subscribe to
+  // `skills`/`mru` and memoize orderSkillsByMru instead — see the note on that function.
   orderedSkills: () => {
     const { skills, mru } = get();
-    const rank = new Map(mru.map((id, i) => [id, i]));
-    return [...skills].sort((a, b) => {
-      const ra = rank.has(a.id) ? rank.get(a.id)! : Infinity;
-      const rb = rank.has(b.id) ? rank.get(b.id)! : Infinity;
-      return ra - rb || a.name.localeCompare(b.name);
-    });
+    return orderSkillsByMru(skills, mru);
   },
 }));

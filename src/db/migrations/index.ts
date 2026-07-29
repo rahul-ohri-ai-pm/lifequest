@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { withWriteTransaction } from '../transaction';
 import * as m0001 from './0001_init';
 import * as m0002 from './0002_skills';
 
@@ -26,7 +27,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
 
   for (const migration of MIGRATIONS.sort((a, b) => a.version - b.version)) {
     if (migration.version <= applied) continue;
-    await db.withExclusiveTransactionAsync(async (txn) => {
+    await withWriteTransaction(db, async (txn) => {
       await migration.up(txn);
       await txn.runAsync(
         'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',

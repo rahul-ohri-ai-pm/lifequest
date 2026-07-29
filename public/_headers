@@ -1,0 +1,6 @@
+# Cross-origin isolation, required by expo-sqlite's WebAssembly build (it talks to
+# the SQLite worker over SharedArrayBuffer). Read by Netlify / Cloudflare Pages.
+# GitHub Pages ignores this file — public/sw.js covers that case instead.
+/*
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Opener-Policy: same-origin
