@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { FastCapture } from '../../src/components/FastCapture';
 import { TaskCard } from '../../src/components/TaskCard';
+import { TodayHeader } from '../../src/components/TodayHeader';
 import { useTaskStore } from '../../src/store/useTaskStore';
 import { useSkillStore } from '../../src/store/useSkillStore';
 import { isScheduledDay } from '../../src/engine/time';
@@ -18,6 +20,18 @@ export default function TodayScreen() {
   const skipTask = useTaskStore((s) => s.skipTask);
   const unskipTask = useTaskStore((s) => s.unskipTask);
   const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
+
+  // Card spine color = the first category tagged on the task (§5). Subscribe to raw
+  // state and derive here — a selector building this map would loop (see useSkillStore).
+  const skills = useSkillStore((s) => s.skills);
+  const taskSkills = useSkillStore((s) => s.taskSkills);
+  const spineFor = useMemo(() => {
+    const byId = new Map(skills.map((s) => [s.id, s.color]));
+    return (taskId: string) => {
+      const first = taskSkills[taskId]?.[0];
+      return first ? (byId.get(first) ?? null) : null;
+    };
+  }, [skills, taskSkills]);
 
   const completedTaskIds = new Set(completionsToday.map((c) => c.taskId));
   const skippedTaskIds = new Set(skipsToday.map((s) => s.taskId));
@@ -58,10 +72,19 @@ export default function TodayScreen() {
       <FlatList
         data={todayTasks}
         keyExtractor={(t) => t.id}
-        ListHeaderComponent={<FastCapture onAdd={onAdd} />}
+        ListHeaderComponent={
+          <>
+            <TodayHeader
+              doneCount={todayTasks.filter(isDone).length}
+              totalCount={todayTasks.length}
+            />
+            <FastCapture onAdd={onAdd} />
+          </>
+        }
         renderItem={({ item }) => (
           <TaskCard
             task={item}
+            spineColor={spineFor(item.id)}
             done={isDone(item)}
             hasCompletionToday={completedTaskIds.has(item.id)}
             skippedToday={skippedTaskIds.has(item.id)}

@@ -36,16 +36,41 @@ export default function CalendarScreen() {
     });
   };
 
-  const dayHasActivity = useMemo(() => {
+  // Days on which something was actually completed. This used to be
+  // "day has a scheduled or due task", which — with a single daily habit — put an
+  // identical dot on every square of every month, past and future, so the marker
+  // carried no information at all. Completion is real history; a schedule is not.
+  const [monthCompletionDays, setMonthCompletionDays] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const first = grid[0]?.[0];
+    const lastWeek = grid[grid.length - 1];
+    const last = lastWeek?.[lastWeek.length - 1];
+    if (!first || !last) return;
+    const startIso = dayWindow(dateFromDayKey(first.dayKey)).startIso;
+    const endIso = dayWindow(dateFromDayKey(last.dayKey)).endIso;
+    let cancelled = false;
+    void getCompletionsBetween(startIso, endIso).then((rows) => {
+      if (cancelled) return;
+      setMonthCompletionDays(new Set(rows.map((c) => dayKeyFor(new Date(c.completedAt)))));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [grid]);
+
+  // A future/today square with work planned gets a hollow marker, so "planned"
+  // and "done" are visually distinct rather than the same blue dot.
+  const dayIsPlanned = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const week of grid) {
       for (const cell of week) {
-        map.set(cell.dayKey, tasksForDay(cell.dayKey).length > 0);
+        map.set(cell.dayKey, cell.dayKey >= todayKey && tasksForDay(cell.dayKey).length > 0);
       }
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid, tasks]);
+  }, [grid, tasks, todayKey]);
 
   useEffect(() => {
     const { startIso, endIso } = dayWindow(dateFromDayKey(selected));
@@ -99,7 +124,13 @@ export default function CalendarScreen() {
                 <Text style={[styles.cellText, !cell.inMonth && styles.cellDim]}>
                   {cell.dayOfMonth}
                 </Text>
-                {dayHasActivity.get(cell.dayKey) && <View style={styles.dot} />}
+                {monthCompletionDays.has(cell.dayKey) ? (
+                  <View style={styles.dot} />
+                ) : dayIsPlanned.get(cell.dayKey) ? (
+                  <View style={styles.dotPlanned} />
+                ) : (
+                  <View style={styles.dotSpacer} />
+                )}
               </Pressable>
             );
           })}
@@ -160,14 +191,27 @@ const styles = StyleSheet.create({
   cellToday: { borderWidth: 1, borderColor: colors.accentSecondary },
   cellText: { color: colors.textPrimary, fontSize: 13 },
   cellDim: { color: colors.textSecondary, opacity: 0.4 },
+  // Filled = something was completed that day (real history).
   dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: colors.accent,
     position: 'absolute',
     bottom: 4,
   },
+  // Hollow = work planned for today//a future day, nothing logged yet.
+  dotPlanned: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    borderWidth: 1,
+    borderColor: colors.textSecondary,
+    position: 'absolute',
+    bottom: 4,
+  },
+  // Keeps every cell the same height whether or not it carries a marker.
+  dotSpacer: { width: 5, height: 5, position: 'absolute', bottom: 4 },
   selectedTitle: {
     color: colors.textSecondary,
     fontSize: 13,

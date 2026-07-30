@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from '../../src/components/icons';
-import { colors } from '../../src/constants/theme';
+import { colors, text } from '../../src/constants/theme';
 
 export default function TabLayout() {
   return (
@@ -8,9 +8,13 @@ export default function TabLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.backgroundAlt },
         headerTintColor: colors.textPrimary,
+        headerTitleStyle: text.screenTitle,
         tabBarStyle: { backgroundColor: colors.backgroundAlt, borderTopColor: colors.panel },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSecondary,
+        // Tab labels stay on the system font deliberately: §5 reserves the display face
+        // for headers, numbers, and level-up moments. Rajdhani here also overflowed the
+        // tab bar's fixed label box and clipped the glyph bottoms.
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

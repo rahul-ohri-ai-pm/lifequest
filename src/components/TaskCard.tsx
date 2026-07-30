@@ -1,6 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, difficultyColors, radii, spacing } from '../constants/theme';
+import {
+  colors,
+  difficultyColors,
+  glowStrong,
+  radii,
+  spacing,
+  text,
+  type,
+} from '../constants/theme';
 import { xpForDifficulty } from '../engine/xp';
 import type { Task } from '../types';
 
@@ -10,11 +18,26 @@ interface Props {
   hasCompletionToday: boolean; // enables undo
   skippedToday: boolean;
   progressToday: number; // counted tasks: today's cumulative sum
+  spineColor?: string | null; // first tagged category's color (§5 card accent)
   onComplete(task: Task): void;
   onUndo(task: Task): void;
   onSkip(task: Task): void;
   onUnskip(task: Task): void;
   onLogProgress(task: Task): void;
+}
+
+// Metadata is shown only when it says something. Every task defaults to medium
+// (Phase 1.5 hid the difficulty picker), so printing "Medium · 25 XP" on every
+// row was five identical lines of noise — difficulty now appears only when the
+// user actually changed it, and then it carries its rarity color (§5).
+function metaParts(task: Task, progressToday: number, skippedToday: boolean): string[] {
+  const parts: string[] = [];
+  if (task.type === 'counted' && task.targetCount != null) {
+    parts.push(`${progressToday}/${task.targetCount}`);
+  }
+  if (task.difficulty !== 'medium') parts.push(task.difficulty);
+  if (skippedToday) parts.push('skipped');
+  return parts;
 }
 
 export function TaskCard({
@@ -23,6 +46,7 @@ export function TaskCard({
   hasCompletionToday,
   skippedToday,
   progressToday,
+  spineColor,
   onComplete,
   onUndo,
   onSkip,
@@ -30,58 +54,99 @@ export function TaskCard({
   onLogProgress,
 }: Props) {
   const router = useRouter();
-  const accent = difficultyColors[task.difficulty];
+  const rarity = difficultyColors[task.difficulty];
   const inactive = done || skippedToday;
   const isCounted = task.type === 'counted' && task.targetCount != null;
+  const parts = metaParts(task, progressToday, skippedToday);
+  const xp = xpForDifficulty(task.difficulty);
 
   return (
-    <View style={[styles.card, { borderColor: accent }, inactive && styles.done]}>
+    <View style={[styles.card, done && styles.cardDone, skippedToday && styles.cardSkipped]}>
+      {/* Category spine — the one place color varies, so a list of quests is
+          scannable at a glance without turning every card into a rainbow. */}
+      <View style={[styles.spine, { backgroundColor: spineColor ?? colors.panelBorder }]} />
+
       <Pressable style={styles.info} onPress={() => router.push(`/task/${task.id}`)}>
-        <Text style={[styles.title, inactive && styles.doneText]} numberOfLines={1}>
+        <Text style={[styles.title, inactive && styles.doneText]} numberOfLines={2}>
           {task.title}
         </Text>
-        <Text style={[styles.meta, { color: accent }]}>
-          {task.type !== 'todo' ? `${task.type} · ` : ''}
-          {task.difficulty} · {xpForDifficulty(task.difficulty)} XP
-          {isCounted ? ` · ${progressToday}/${task.targetCount}` : ''}
-          {skippedToday ? ' · skipped' : ''}
-        </Text>
-      </Pressable>
-      {hasCompletionToday && (
-        <Pressable onPress={() => onUndo(task)} hitSlop={8}>
-          <Text style={styles.linkAction}>undo</Text>
-        </Pressable>
-      )}
-      {/* §4 Skip: offered only for habits on their scheduled days */}
-      {task.type === 'habit' && !done && !skippedToday && (
-        <Pressable onPress={() => onSkip(task)} hitSlop={8}>
-          <Text style={styles.linkAction}>skip</Text>
-        </Pressable>
-      )}
-      {skippedToday && (
-        <Pressable onPress={() => onUnskip(task)} hitSlop={8}>
-          <Text style={styles.linkAction}>unskip</Text>
-        </Pressable>
-      )}
-      {!skippedToday && isCounted && (
-        <Pressable
-          style={[styles.check, styles.plus, { borderColor: accent }, done && { backgroundColor: accent }]}
-          onPress={() => onLogProgress(task)}
-        >
-          <Text style={[styles.plusText, { color: done ? colors.background : accent }]}>
-            {done ? '✓' : '+1'}
+        <View style={styles.metaRow}>
+          <Text style={[styles.xp, task.difficulty !== 'medium' && { color: rarity }]}>
+            {xp} XP
           </Text>
-        </Pressable>
-      )}
-      {!skippedToday && !isCounted && (
-        <Pressable
-          style={[styles.check, { borderColor: accent }, done && { backgroundColor: accent }]}
-          onPress={() => onComplete(task)}
-          disabled={done}
-        >
-          {done && <Text style={styles.checkMark}>✓</Text>}
-        </Pressable>
-      )}
+          {parts.map((p) => (
+            <Text key={p} style={styles.meta}>
+              · {p}
+            </Text>
+          ))}
+        </View>
+      </Pressable>
+
+      <View style={styles.actions}>
+        {/* Secondary verbs are real buttons, not underlined text that reads as a
+            broken link. They stay quiet until the row needs them. */}
+        {hasCompletionToday && (
+          <Pressable
+            style={styles.ghostButton}
+            onPress={() => onUndo(task)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Undo ${task.title}`}
+          >
+            <Text style={styles.ghostText}>Undo</Text>
+          </Pressable>
+        )}
+        {/* §4 Skip: offered only for habits on their scheduled days */}
+        {task.type === 'habit' && !done && !skippedToday && (
+          <Pressable
+            style={styles.ghostButton}
+            onPress={() => onSkip(task)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Skip ${task.title}`}
+          >
+            <Text style={styles.ghostText}>Skip</Text>
+          </Pressable>
+        )}
+        {skippedToday && (
+          <Pressable
+            style={styles.ghostButton}
+            onPress={() => onUnskip(task)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Undo skip ${task.title}`}
+          >
+            <Text style={styles.ghostText}>Undo skip</Text>
+          </Pressable>
+        )}
+
+        {!skippedToday && isCounted && (
+          <Pressable
+            style={[styles.check, styles.checkWide, done && styles.checkDone]}
+            onPress={() => onLogProgress(task)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`Log progress on ${task.title}`}
+          >
+            <Text style={[styles.checkLabel, done && styles.checkLabelDone]}>
+              {done ? '✓' : '+1'}
+            </Text>
+          </Pressable>
+        )}
+        {!skippedToday && !isCounted && (
+          <Pressable
+            style={[styles.check, done && styles.checkDone]}
+            onPress={() => onComplete(task)}
+            disabled={done}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ checked: done }}
+            accessibilityLabel={`Complete ${task.title}`}
+          >
+            <Text style={[styles.checkLabel, done && styles.checkLabelDone]}>{done ? '✓' : ''}</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -89,30 +154,52 @@ export function TaskCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     backgroundColor: colors.panel,
     borderWidth: 1,
+    borderColor: colors.panelBorder,
     borderRadius: radii.md,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    gap: spacing.sm,
+    overflow: 'hidden',
+    minHeight: 68,
   },
-  done: { opacity: 0.55 },
-  info: { flex: 1, marginRight: spacing.sm },
-  title: { color: colors.textPrimary, fontSize: 16 },
+  // Completing something is the point of the app, so the card marks it loudly.
+  cardDone: { borderColor: colors.accent, backgroundColor: colors.panelRaised },
+  cardSkipped: { opacity: 0.5 },
+  spine: { width: 3 },
+  info: { flex: 1, justifyContent: 'center', paddingVertical: spacing.sm, paddingLeft: spacing.md },
+  title: { ...text.cardTitle, fontSize: 17 },
   doneText: { textDecorationLine: 'line-through', color: colors.textSecondary },
-  meta: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
-  linkAction: { color: colors.textSecondary, fontSize: 12, textDecorationLine: 'underline' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  xp: { fontFamily: type.display, fontSize: 12, letterSpacing: 0.5, color: colors.textSecondary },
+  meta: { ...text.meta, textTransform: 'capitalize' },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  ghostButton: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.panelBorder,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  ghostText: { fontSize: 12, color: colors.textSecondary },
+  // The primary action: a 40pt target that fills and glows when it lands.
   check: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
+    borderColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  plus: { width: 36 },
-  plusText: { fontSize: 12, fontWeight: 'bold' },
-  checkMark: { color: colors.background, fontWeight: 'bold' },
+  checkWide: { width: 48, borderRadius: 12 },
+  checkDone: { backgroundColor: colors.accent, ...glowStrong },
+  checkLabel: { fontFamily: type.display, fontSize: 14, color: colors.accent },
+  checkLabelDone: { color: colors.background },
 });

@@ -40,6 +40,14 @@ COOP/COEP headers): service worker takes control → page cross-origin isolated 
 reload (OPFS) → launches with the network off → hard load of `/task/<uuid>` resolves → no page
 errors. All four tabs render with the glow-panel style intact.
 
+## Phase 1.7 (owner feedback round 3 — "honestly? the UI/UX sucks")
+
+| Milestone | Status | Notes |
+|---|---|---|
+| U1 — Design foundations | ✅ Done (2026-07-30) | Diagnosed against real screenshots of the live app, not from memory. Four fixes: (1) **the display font was never shipped** — `fonts.ts` named Rajdhani but `assets/fonts/` didn't exist and `fontFamily` appeared nowhere, so everything rendered in system Helvetica; now loaded via `@expo-google-fonts/rajdhani`, two weights only; (2) `TaskCard` rebuilt — category-colored spine for scannability, metadata shown only when it says something (every row printed an identical "Medium · 25 XP"), 40pt complete target that fills and glows, ghost buttons replacing underlined pseudo-links; (3) `TodayHeader` puts level + XP bar on Today so completing a quest visibly moves something; (4) calendar dots now mean completion (filled) vs planned (hollow) — they previously marked "has a scheduled task", which put an identical dot on every square of every month, forever |
+
+Still open from the design pass (deliberately out of U1's scope): the capture panel occupies a third of the first screen with 8 category chips always expanded; Profile is ~85% empty; Stats opens with four zero-value panels, an empty 14-day chart, and a black bar in the TODAY panel that reads as a render glitch. The Stats rebuild is the natural home for the `dataviz` skill.
+
 ## Phase 2
 
 | Item | Status |

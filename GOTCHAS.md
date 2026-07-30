@@ -98,6 +98,18 @@ during initial development; undoing them re-breaks the project.
     creating a site needs repo-admin and `GITHUB_TOKEN` only has deploy rights). Re-flip the
     switch and re-run; no code change will help.
 
+20. **Rajdhani is for headers, numbers, and level-ups only — never tab bar labels.** Its
+    ascent/descent is taller than the system font, and the Expo Router tab bar has a fixed label
+    box: setting `tabBarLabelStyle.fontFamily` to the display face clips the bottom off every
+    label ("Today", "Calendar", …). An explicit `lineHeight` does not reliably rescue it. This
+    also happens to be what §5 says — system font for anything read at length. Same caution
+    applies to any other fixed-height control before reaching for `type.display`.
+
+21. **Fonts load behind the startup gate, and a font failure must not block boot.**
+    `app/_layout.tsx` waits on `!ready || !(fontsLoaded || fontError)` — note the `fontError`
+    branch. Gating on `fontsLoaded` alone would leave the app spinning forever on a device where
+    the face fails to fetch; a missing display font makes LifeQuest plainer, not broken.
+
 ## Agent session environment (Claude Code on the web)
 
 19. **`curl https://api.github.com/...` does not work — use the GitHub MCP tools.** The session
