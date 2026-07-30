@@ -32,6 +32,7 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 | Milestone | Status | Notes |
 |---|---|---|
 | W1 — Web app / installable PWA | ✅ Done (2026-07-29) | Same codebase runs in the browser: SQLite via WebAssembly + OPFS, service worker supplying cross-origin isolation + offline cache, PWA manifest/icons (installs to home screen), GitHub Pages deploy workflow. Verified in a real browser end-to-end — 13/13 checks (see below). Two shared-code bugs fixed on the way: no exclusive transactions on web (`src/db/transaction.ts`), and an infinite-re-render zustand selector |
+| W2 — Live deploy | ✅ Done (2026-07-30) | **https://gamedev1991.github.io/lifequest/** — run #4 (`workflow_dispatch` on `main`) green through `configure-pages` → `deploy-pages`. Runs #1–#3 all failed on the same wall: the repo had no Pages site, and the workflow cannot create one (`GITHUB_TOKEN`'s `pages: write` deploys to an existing site; creating one needs repo-admin). Unblocked by the owner enabling Settings → Pages → Source → GitHub Actions. Root, `manifest.webmanifest`, `sw.js`, `404.html` all serve 200 |
 
 W1 verification (headless Chromium at phone viewport, served like GitHub Pages — subpath, no
 COOP/COEP headers): service worker takes control → page cross-origin isolated → SQLite-wasm opens
@@ -43,10 +44,10 @@ errors. All four tabs render with the glow-panel style intact.
 
 | Item | Status |
 |---|---|
-| Streak engine (tested) | ⬜ |
-| Skills migration + tagging + split XP | ⬜ |
+| Streak engine (tested) | ⬜ — next up |
+| Skills migration + tagging + split XP | ✅ Pulled forward into Phase 1.5 (N4 `919b5c7`): `0002` migration, 8 defaults, split XP in the completion transactions, MRU chips |
 | Badge engine + gallery | ⬜ |
-| Skill dashboard | ⬜ |
+| Skill dashboard | ⬜ — partially covered by the N5 by-category panel; the full per-skill dashboard with day/week/month/all-time filters is still open |
 
 ## Phase 3
 
@@ -63,5 +64,6 @@ errors. All four tabs render with the glow-panel style intact.
 - ~~expo-router default tabs bundle a 956KB Material Symbols font~~ — fixed in M9 (metro.config.js resolves the package to an empty module; custom SVG tabBarIcons everywhere)
 - Web entry bundle is 1.3MB (plus a 621KB SQLite wasm, fetched once and cached). Fine over HTTPS with a service worker, but it's the number to watch against the §3 lightweight rule — Phase 2/3 screens should keep leaning on Expo Router's per-route splitting
 - The web build has no automated regression test in CI yet: the browser end-to-end pass was run locally (scripted Playwright). The deploy workflow gates on typecheck + jest only. Worth adding if the web app becomes the only channel
+- **The live site has not been confirmed on the owner's real phone yet.** The 13/13 pass was headless Chromium; iOS Safari differs on OPFS quota, service-worker lifetime, and home-screen-launch storage scoping. Not done until a quest survives a real close-and-reopen on the device
 - `.npmrc` uses `legacy-peer-deps` (react-dom peer conflict in Expo SDK 57 tree) — revisit on SDK upgrade
 - jest pinned to 29.x for jest-expo 57 compatibility

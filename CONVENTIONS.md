@@ -75,4 +75,8 @@ and ask the owner instead of improvising.
 17. Commit per milestone/feature with a descriptive message; push to `origin main`
     (https://github.com/gamedev1991/lifequest). Update [PROGRESS.md](PROGRESS.md) when a
     milestone completes or new debt is created.
+17b. **Work directly on `main` — no feature or session branches** (owner instruction, 2026-07-30).
+    Single-user repo with no review gate, so a branch adds a merge step and buys nothing. The
+    safety net is rule 16 (a commit must be green before it's pushed), not branch isolation.
+    Pushing to `main` publishes: it triggers the Pages deploy, so a bad commit reaches the phone.
 18. Never commit: `dist/`, `node_modules/`, `.expo/`, or edits to shipped migrations.

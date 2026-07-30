@@ -90,3 +90,21 @@ during initial development; undoing them re-breaks the project.
     starting with an underscore and every bundle lives under `_expo/static/`.
     `scripts/finalize-web-export.mjs` writes it (plus `404.html` for dynamic-route deep links) —
     it runs as part of `npm run build:web`, so don't call `expo export` alone for a deploy.
+
+18. **Pages must be enabled by hand; the workflow can never do it.** Settings → Pages → Source →
+    GitHub Actions. Done for this repo on 2026-07-30, but if `configure-pages` ever fails with
+    `Get Pages site failed … Not Found`, that switch is off — do **not** "fix" it by adding
+    `enablement: true` (tried; fails with "Resource not accessible by integration", because
+    creating a site needs repo-admin and `GITHUB_TOKEN` only has deploy rights). Re-flip the
+    switch and re-run; no code change will help.
+
+## Agent session environment (Claude Code on the web)
+
+19. **`curl https://api.github.com/...` does not work — use the GitHub MCP tools.** The session
+    proxy answers direct GitHub API calls with **HTTP 403** and a JSON body reading "GitHub access
+    is not enabled for this session," *even for this public repo*. This is nastier than a plain
+    failure: a poll loop like `until [ "$(curl … | grep status)" = '"status": "completed"' ]` will
+    spin forever against the 403 body and looks exactly like "the job is still running." It cost a
+    session once. Read CI state via `actions_list` / `actions_get` / `get_job_logs`, and never
+    build a wait loop on top of raw `curl` to GitHub. Plain `curl` to the *published site*
+    (`gamedev1991.github.io`) is fine — that's how the deploy was verified.

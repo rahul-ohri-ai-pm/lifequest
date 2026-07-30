@@ -42,17 +42,24 @@ npm run build:web    # production build into dist/ (also writes .nojekyll + 404.
 npm run serve:web    # serve the built dist/ locally
 ```
 
-**Deploying**: pushing to `main` runs `.github/workflows/deploy-web.yml`, which typechecks, runs the
-tests, builds, and publishes `dist/` to GitHub Pages. The app then lives at
-`https://<user>.github.io/lifequest/` — open it on the phone once and use "Add to Home Screen".
+### 👉 Live app: **https://gamedev1991.github.io/lifequest/**
 
-**One-time setup, and it must be done by hand**: repo **Settings → Pages → Source → GitHub
-Actions**. Until that's done the workflow fails at `configure-pages` with `Get Pages site failed …
-Not Found`. The workflow cannot do this for you: creating a Pages site needs repo-admin rights,
-and `GITHUB_TOKEN`'s `pages: write` only covers deploying to a site that already exists. Note that
-Pages on a **private** repo requires a paid plan (Pro/Team) — on the free plan, either make the
-repo public or host the same `dist/` somewhere else (Netlify/Cloudflare Pages, where
-`public/_headers` already supplies the required headers).
+Open it on the phone once and use "Add to Home Screen".
+
+**Deploying**: pushing to `main` runs `.github/workflows/deploy-web.yml`, which typechecks, runs the
+tests, builds, and publishes `dist/` to GitHub Pages. The workflow also accepts a manual
+`workflow_dispatch` run (Actions → Deploy web app → Run workflow) when you need to re-publish
+without a new commit.
+
+**One-time setup — already done for this repo (2026-07-30), documented in case it's ever reset or
+the project is forked**: repo **Settings → Pages → Source → GitHub Actions**. Until that's done the
+workflow fails at `configure-pages` with `Get Pages site failed … Not Found`, and it must be done by
+hand — creating a Pages site needs repo-admin rights, while `GITHUB_TOKEN`'s `pages: write` only
+covers deploying to a site that already exists. (`enablement: true` on `configure-pages` was tried
+and fails with "Resource not accessible by integration".) Note that Pages on a **private** repo
+requires a paid plan (Pro/Team) — on the free plan, either make the repo public or host the same
+`dist/` somewhere else (Netlify/Cloudflare Pages, where `public/_headers` already supplies the
+required headers).
 
 If the site is ever hosted somewhere other than `/lifequest/`, change `expo.experiments.baseUrl` in
 `app.json` to match (`""` for a root domain).
@@ -83,5 +90,6 @@ Note: the default build packages all 4 CPU ABIs (~93MB). For a phone-only build 
 Phase 1 (MVP) is code-complete: all three task types, complete/undo/skip/snooze/archive, XP +
 character level, calendar view, dark glow-panel UI. Phase 1.5 added the stats dashboard, the
 simplified capture form, and categories with split XP. Phase 1.6 made it an installable web app —
-now the primary way it's used. Phase 2 (streaks, badges, skill dashboard) is next.
-See [PROGRESS.md](PROGRESS.md).
+now the primary way it's used — and it is **live at
+https://gamedev1991.github.io/lifequest/** as of 2026-07-30. Phase 2 (streaks, badges, skill
+dashboard) is next. See [PROGRESS.md](PROGRESS.md).

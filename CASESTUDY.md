@@ -216,6 +216,42 @@ using architecture dividends, refusing correctness shortcuts under schedule pres
 
 ---
 
+## Step 8 — The last mile was a permission, not a bug (2026-07-30)
+
+**What happened**: The web app was built, tested, and browser-verified on 2026-07-29 — and still
+wasn't reachable. Three consecutive deploy runs failed. Every run passed install, typecheck, 63
+tests, and the production build, then died at the same step: `configure-pages`. The repo had no
+GitHub Pages site, and the workflow's own token could not create one — `pages: write` covers
+*deploying to* an existing site, not *creating* one, which needs repo-admin rights. The fix was a
+human clicking one dropdown in Settings. Once that was done, run #4 went green end to end and the
+app went live at **https://gamedev1991.github.io/lifequest/**.
+
+**PM decisions & why**:
+- **Recognizing an unfixable-by-me blocker is a skill, and the failure mode is thrash.** Run #2
+  attempted `enablement: true` — asking the workflow to create the site itself. It failed on
+  permissions. The correct next move was to stop coding, write the manual step into the README and
+  the workflow file, and hand the owner a 15-second task. Attempt #3 was already one attempt too
+  many; a fourth "clever" workaround would have burned a session against a permission boundary that
+  no code change can cross.
+- **"Verified" and "shipped" are different claims, and conflating them is how you lose trust.**
+  Step 7 closed with a genuine 13/13 browser pass, which made the work *feel* done. It wasn't: the
+  user still couldn't open it. The status line was corrected to say built-and-verified but not yet
+  reachable — and even now, "live" is not "confirmed on his phone." iOS Safari differs from headless
+  Chromium on OPFS and service-worker lifetime, so PROGRESS.md carries an explicit open item until
+  a quest survives a real close-and-reopen on the actual device.
+- **A monitor that can't distinguish failure from silence is worse than no monitor.** While waiting
+  on run #4, the poll loop watching CI used `curl` against the GitHub API — which this session's
+  proxy answers with HTTP 403, not run data. The loop compared an error body against "completed,"
+  never matched, and would have hung until timeout reporting nothing. The run had in fact succeeded
+  minutes earlier. The bug wasn't the 403; it was writing a wait condition whose failure looks
+  identical to "still working." Logged as GOTCHAS #19, with the rule: never build a CI wait loop on
+  a call you haven't confirmed returns real data.
+
+**Skills shown**: knowing when to escalate to a human instead of engineering around a permission,
+holding the line between "it works" and "they have it," designing status checks that fail loudly.
+
+---
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -230,6 +266,8 @@ using architecture dividends, refusing correctness shortcuts under schedule pres
 | First usage | "I want an APK now, not Expo" | Local build toolchain, N1 shipped same day |
 | Post-APK | "Maintain a case-study file for PM storytelling" | This document |
 | 2026-07-29 | "The APK doesn't work. Let's make it a web application" | Pivoted distribution to an installable PWA on GitHub Pages; W1 shipped and browser-verified same day (Step 7) |
+| 2026-07-30 | "Always work on main branch" | Dropped the session-branch workflow — single-user repo, no review gate, branches were ceremony |
+| 2026-07-30 | "Re-run deploy but don't end up in a loop — last time you ended up in a loop" | Owner enabled Pages; one manual run went green and the app is live. The no-loop instruction was itself a process fix — see Step 8 |
 
 ---
 
@@ -249,6 +287,10 @@ using architecture dividends, refusing correctness shortcuts under schedule pres
    channel instead of the artifact — and why "an APK" was never actually the requirement.
 8. **"Porting to a new platform is the cheapest code review you'll ever get."** A browser found an
    infinite render loop that had been sitting in the shipped Android build for weeks.
+9. **"Three green builds and the user still couldn't open it."** Why "verified" isn't "shipped,"
+   and how to tell a blocker you can engineer around from one you have to escalate.
+10. **"My status check couldn't tell 'failed' from 'still running.'"** Silence is not success —
+    a short lesson in designing monitors that fail loudly.
 
 ---
 
