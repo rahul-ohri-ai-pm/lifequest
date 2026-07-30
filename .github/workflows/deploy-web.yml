@@ -37,11 +37,12 @@ jobs:
 
       - run: npm run build:web
 
-      # enablement: true turns Pages on (source = GitHub Actions) via the API on the first
-      # run, so publishing needs no manual trip through repo Settings.
+      # Requires Pages to be ON for the repo, with source = GitHub Actions (repo Settings →
+      # Pages). That is a one-time manual step and cannot be automated from here: `enablement:
+      # true` was tried and fails with "Resource not accessible by integration" — creating a
+      # Pages site needs repo-admin rights, which GITHUB_TOKEN does not have (its `pages: write`
+      # permission covers deploying to an existing site, not creating one).
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

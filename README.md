@@ -43,9 +43,16 @@ npm run serve:web    # serve the built dist/ locally
 ```
 
 **Deploying**: pushing to `main` runs `.github/workflows/deploy-web.yml`, which typechecks, runs the
-tests, builds, and publishes `dist/` to GitHub Pages. One-time setup: repo **Settings → Pages →
-Source → GitHub Actions**. The app then lives at `https://<user>.github.io/lifequest/` — open it on
-the phone once and use "Add to Home Screen".
+tests, builds, and publishes `dist/` to GitHub Pages. The app then lives at
+`https://<user>.github.io/lifequest/` — open it on the phone once and use "Add to Home Screen".
+
+**One-time setup, and it must be done by hand**: repo **Settings → Pages → Source → GitHub
+Actions**. Until that's done the workflow fails at `configure-pages` with `Get Pages site failed …
+Not Found`. The workflow cannot do this for you: creating a Pages site needs repo-admin rights,
+and `GITHUB_TOKEN`'s `pages: write` only covers deploying to a site that already exists. Note that
+Pages on a **private** repo requires a paid plan (Pro/Team) — on the free plan, either make the
+repo public or host the same `dist/` somewhere else (Netlify/Cloudflare Pages, where
+`public/_headers` already supplies the required headers).
 
 If the site is ever hosted somewhere other than `/lifequest/`, change `expo.experiments.baseUrl` in
 `app.json` to match (`""` for a root domain).
