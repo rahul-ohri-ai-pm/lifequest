@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { BorderBeam } from './ui/border-beam';
 import { CheckIcon } from './icons';
 import { cn } from '../lib/utils';

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import { monthGrid } from '../engine/calendar';
 import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/time';

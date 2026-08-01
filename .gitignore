@@ -4,13 +4,6 @@ node_modules/
 # Build output
 dist/
 
-# Leftovers from the pre-2026-08-02 Expo build. Nothing generates these any more, but they
-# still exist on dev machines that ran the old toolchain — keep them ignored so a stale
-# local `android/` never lands in the repo. Safe to delete by hand.
-.expo/
-android/
-ios/
-
 # Testing
 coverage/
 
