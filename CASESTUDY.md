@@ -322,6 +322,7 @@ export/import up the priority list. A backup feature is worth most before you ne
 | 2026-07-30 | "Re-run deploy but don't end up in a loop — last time you ended up in a loop" | Owner enabled Pages; one manual run went green and the app is live. The no-loop instruction was itself a process fix — see Step 8 |
 | 2026-08-02 | "Is magicuidesign installed?" | Answered with the real blocker rather than a yes/no: available as an MCP server, unusable against React Native primitives |
 | 2026-08-02 | "Let's remove Expo code and use Tailwind + framer-motion so that we can use Magic UI as is" | Full web rewrite (Step 9). Concern stated once, three shape-changing choices put to the owner, then delivered end-to-end. Engine, types, stores, and all SQL survived unchanged; 63/63 tests green on a new runner |
+| 2026-08-02 | "Merge and push, ensure everything is working first. Delete stale directories" | Clean-room `npm ci` + full gate, then the live site itself was exercised after deploy (round-trip, all routes, deep links, offline cold launch). A high-severity router advisory surfaced during the check and was cleared rather than waved past. 1.7 GB of dead Expo/Gradle output deleted |
 
 ---
 
