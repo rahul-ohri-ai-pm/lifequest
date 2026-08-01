@@ -81,10 +81,11 @@ still separately code-split; fonts still latin-subset only.
 **Shipped**: merged to `main` (fast-forward, `fad37fa`) and deployed — run 30721611537 green,
 live at https://gamedev1991.github.io/lifequest/. Verified by hashing **all 21 deployed files**
 against `dist/` (21/21 identical, including the wasm, service worker and manifest), then re-running
-the full browser harness against `vite preview` serving those exact bytes. The re-run mattered:
-Tailwind v4 scans Markdown, so writing utility names into these docs changed the emitted CSS and
-every chunk hash, meaning the build tested *before* the doc commit was not the build that shipped
-(GOTCHAS 20). Driving a browser at the live URL is not possible from an agent session — Chromium's
+the full browser harness against `vite preview` serving those exact bytes. The re-run mattered: a
+one-line `startValue` fix landed *after* the first harness pass, so the build that shipped was not
+the build originally tested. (Tailwind v4 does also scan Markdown — verified by probe — but only
+bites when the prose names a utility the app doesn't already use, which is why the docs commit
+itself built byte-identical. GOTCHAS 20.) Driving a browser at the live URL is not possible from an agent session — Chromium's
 CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 21).
 
 ## Phase 2

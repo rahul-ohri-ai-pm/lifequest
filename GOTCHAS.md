@@ -185,15 +185,28 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
 
 ## Design pass — system-window redesign (2026-08-02)
 
-20. **Tailwind v4 scans Markdown too, so editing the docs changes the shipped CSS.** Writing
-    `notch`, `text-glow` and `bg-panel` into DECISIONS.md/PROGRESS.md while documenting the
-    redesign harvested those strings as real utilities: `index.css` changed hash, and with it the
-    JS chunk hashes. Harmless in output (they're utilities the app already uses) but it means
-    **a docs-only commit can produce a different bundle**, so "I browser-tested this build" stops
-    being true the moment you write the doc entry and rebuild. Re-verify against the *final*
-    `dist/`, not the one you tested before writing docs — or confirm the deployed files hash-match
-    what you actually drove. That is why the deploy check here is a per-file `sha256` of every
-    live asset against `dist/`, not just an eyeball of the index hash.
+20. **Tailwind v4 scans Markdown, so a docs-only commit can change the shipped CSS.** Confirmed by
+    experiment, not inferred: appending an unused colour utility (`bg-fuchsia-` + a shade — spelled
+    apart here **on purpose**, see below) to PROGRESS.md and rebuilding puts that rule in
+    `dist/assets/index-*.css`. The `.md` files are in the source-detection set exactly
+    like `.tsx` (a class name inside a *code comment* is harvested too — the extractor sees
+    strings, not syntax).
+
+    The condition is narrow, which is what makes it easy to get wrong in both directions: the
+    bundle only moves when the prose names a utility the app **doesn't already use**. Writing
+    `notch` / `text-glow` / `bg-panel` into the docs changed nothing, because those are already
+    emitted — the commit that added them built to byte-identical output. Writing a *new* class
+    name would have changed the CSS hash, and every JS chunk hash with it.
+
+    Note the trap this entry sets for itself: writing a real, unused class name into *this file*
+    would ship that rule forever. The first draft did exactly that and grew the CSS. Keep example
+    class names broken up or obviously invalid in the docs.
+
+    Consequence for verification: "I browser-tested this build" can quietly stop being true
+    between the test and the commit — not usually because of docs, but because *any* edit after
+    the test (here, a one-line `startValue` fix) rebuilds the bundle. Verify against the **final**
+    `dist/`, and prove the deploy by hashing every live asset against it rather than eyeballing
+    the index hash.
 
 21. **Headless Chromium cannot reach the published site from an agent session; `curl` can.**
     Outbound HTTPS goes through the session proxy, and Chromium's `CONNECT` through it comes back
