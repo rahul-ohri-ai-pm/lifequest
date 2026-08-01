@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { BorderBeam } from './ui/border-beam';
+import { SystemPanel } from './system/SystemPanel';
 import { SkillChips } from './SkillChips';
 import { orderSkillsByMru, useSkillStore } from '../store/useSkillStore';
 import { cn } from '../lib/utils';
@@ -14,10 +16,16 @@ interface Props {
 }
 
 // §2 fast capture, reworked per Phase 1.5: title is the only required field. Schedule and
-// target are orthogonal toggles — no type picker, no difficulty picker (difficulty
-// defaults to medium; editable on the task's edit screen).
+// target are orthogonal toggles — no type picker, no difficulty picker (difficulty defaults
+// to medium; editable on the task's edit screen).
+//
+// The options now stay folded until the field is touched. Fully expanded, eight category
+// chips and two toggles filled roughly the top third of Today before a single quest was
+// visible — which is backwards for a screen whose job is showing the quest log. Capture
+// itself is untouched and still one gesture: type a title, press Add.
 export function FastCapture({ onAdd }: Props) {
   const [title, setTitle] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [days, setDays] = useState<number[]>([]); // empty = daily
   const [counted, setCounted] = useState(false);
@@ -46,6 +54,7 @@ export function FastCapture({ onAdd }: Props) {
     setCounted(false);
     setTarget('');
     setSkillIds([]);
+    setExpanded(false);
   };
 
   const toggleSkill = (id: string) =>
@@ -55,85 +64,106 @@ export function FastCapture({ onAdd }: Props) {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
   const input =
-    'w-full border-b border-accent bg-transparent py-2 text-base text-fg outline-none placeholder:text-muted';
-  const toggle = 'rounded border px-2 py-1 text-[13px] transition-colors';
+    'w-full border-b border-accent/60 bg-transparent py-1.5 text-base text-fg outline-none placeholder:text-muted focus:border-accent';
+  const toggle = 'notch [--notch:5px] border px-2 py-1 text-[13px] transition-colors';
 
   return (
     <form
-      className="relative m-4 flex flex-col gap-2 overflow-hidden rounded-lg bg-panel p-4 panel-glow"
+      className="m-4"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <BorderBeam size={90} duration={9} colorFrom={colors.accent} colorTo={colors.accentSecondary} />
+      <SystemPanel glow innerClassName="relative flex flex-col gap-2 overflow-hidden px-4 py-3">
+        <BorderBeam size={90} duration={9} colorFrom={colors.accent} colorTo={colors.accentSecondary} />
 
-      <input
-        className={input}
-        placeholder="New quest…"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        aria-label="Quest title"
-      />
-      <SkillChips skills={orderedSkills} selected={skillIds} onToggle={toggleSkill} />
+        <span className="font-display text-[11px] uppercase tracking-[0.24em] text-muted">New quest</span>
 
-      <div className="flex flex-wrap items-center gap-1">
-        <button
-          type="button"
-          aria-pressed={repeat}
-          onClick={() => setRepeat(!repeat)}
-          className={cn(toggle, repeat ? 'border-accent bg-accent/15 text-accent' : 'border-muted text-muted')}
-        >
-          ↻ Repeat
-        </button>
-        <button
-          type="button"
-          aria-pressed={counted}
-          onClick={() => setCounted(!counted)}
-          className={cn(toggle, counted ? 'border-accent bg-accent/15 text-accent' : 'border-muted text-muted')}
-        >
-          # Count to target
-        </button>
-      </div>
-
-      {repeat && (
-        <div className="flex flex-wrap items-center gap-1">
-          {WEEKDAYS.map((label, d) => (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={days.includes(d)}
-              aria-label={`Toggle day ${d}`}
-              onClick={() => toggleDay(d)}
-              className={cn(
-                'grid size-7 place-items-center rounded-full border text-xs transition-colors',
-                days.includes(d) ? 'border-accent bg-accent text-bg' : 'border-muted text-muted'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-          {!days.length && <span className="ml-1 text-xs text-muted">every day</span>}
+        <div className="flex items-center gap-2">
+          <input
+            className={input}
+            placeholder="What needs doing?"
+            value={title}
+            onFocus={() => setExpanded(true)}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Quest title"
+          />
+          <button
+            type="submit"
+            disabled={!title.trim()}
+            className="notch [--notch:6px] shrink-0 bg-accent px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.12em] text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
+          >
+            + Add
+          </button>
         </div>
-      )}
 
-      {counted && (
-        <input
-          className={input}
-          placeholder="Daily target (e.g. 8)"
-          value={target}
-          inputMode="numeric"
-          onChange={(e) => setTarget(e.target.value)}
-          aria-label="Daily target"
-        />
-      )}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="options"
+              className="flex flex-col gap-2 overflow-hidden"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              <SkillChips skills={orderedSkills} selected={skillIds} onToggle={toggleSkill} />
 
-      <button
-        type="submit"
-        className="rounded bg-accent py-2 text-[15px] font-bold text-bg transition-opacity hover:opacity-90"
-      >
-        + Add
-      </button>
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  aria-pressed={repeat}
+                  onClick={() => setRepeat(!repeat)}
+                  className={cn(toggle, repeat ? 'border-accent bg-accent/15 text-accent' : 'border-edge text-muted')}
+                >
+                  ↻ Repeat
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={counted}
+                  onClick={() => setCounted(!counted)}
+                  className={cn(toggle, counted ? 'border-accent bg-accent/15 text-accent' : 'border-edge text-muted')}
+                >
+                  # Count to target
+                </button>
+              </div>
+
+              {repeat && (
+                <div className="flex flex-wrap items-center gap-1">
+                  {WEEKDAYS.map((label, d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      aria-pressed={days.includes(d)}
+                      aria-label={`Toggle day ${d}`}
+                      onClick={() => toggleDay(d)}
+                      className={cn(
+                        'grid size-7 place-items-center rounded-full border text-xs transition-colors',
+                        days.includes(d) ? 'border-accent bg-accent text-bg' : 'border-edge text-muted'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {!days.length && <span className="ml-1 text-xs text-muted">every day</span>}
+                </div>
+              )}
+
+              {counted && (
+                <input
+                  className={input}
+                  placeholder="Daily target (e.g. 8)"
+                  value={target}
+                  inputMode="numeric"
+                  onChange={(e) => setTarget(e.target.value)}
+                  aria-label="Daily target"
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </SystemPanel>
     </form>
   );
 }

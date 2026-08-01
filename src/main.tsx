@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MotionConfig } from 'motion/react';
 import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import './index.css';
@@ -20,8 +21,14 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <App />
-    </BrowserRouter>
+    {/* `reducedMotion="user"` makes every `motion` component in the app drop transform and
+        layout animation when the OS asks for less motion, keeping only opacity. Set once
+        here so no individual component has to remember; the CSS half of the same promise
+        lives in the media query in index.css. */}
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <App />
+      </BrowserRouter>
+    </MotionConfig>
   </StrictMode>
 );

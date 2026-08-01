@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { useNavigate, useParams } from 'react-router';
 import { SkillChips } from '../components/SkillChips';
+import { SystemPanel } from '../components/system/SystemPanel';
 import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { addDays, dateFromDayKey, dayKeyFor } from '../engine/time';
@@ -13,8 +15,9 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const inputClass =
-  'w-full border-b border-accent bg-transparent py-1 text-base text-fg outline-none placeholder:text-muted';
-const labelClass = 'mt-2 block text-xs text-muted';
+  'w-full border-b border-accent/60 bg-transparent py-1 text-base text-fg outline-none placeholder:text-muted focus:border-accent';
+const labelClass =
+  'mt-2 block font-display text-[11px] uppercase tracking-[0.18em] text-muted';
 
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
@@ -88,8 +91,18 @@ export default function TaskDetail() {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
   return (
-    <div className="p-4 pb-8">
-      <div className="flex flex-col gap-2 rounded-lg bg-panel p-6 panel-glow">
+    // The motion reference flips its cards on the Y axis to reveal what is on the back.
+    // Opening a quest is exactly that gesture: the row in the list turns over to show its
+    // detail. Perspective lives on the wrapper so the rotation reads as depth, not as a
+    // horizontal squash.
+    <motion.div
+      className="p-4 pb-8"
+      style={{ perspective: 1200 }}
+      initial={{ rotateY: -90, opacity: 0 }}
+      animate={{ rotateY: 0, opacity: 1 }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <SystemPanel glow innerClassName="flex flex-col gap-2 px-5 py-5">
         <label className={labelClass}>
           Title
           <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -122,7 +135,7 @@ export default function TaskDetail() {
               type="button"
               aria-pressed={difficulty === d}
               onClick={() => setDifficulty(d)}
-              className="rounded border px-2 py-1 text-xs capitalize transition-colors"
+              className="notch [--notch:4px] border px-2 py-1 font-display text-xs uppercase tracking-wider transition-colors"
               style={{
                 borderColor: difficultyColors[d],
                 color: difficultyColors[d],
@@ -147,7 +160,7 @@ export default function TaskDetail() {
                   onClick={() => toggleDay(d)}
                   className={cn(
                     'grid size-7 place-items-center rounded-full border text-xs transition-colors',
-                    days.includes(d) ? 'border-accent bg-accent text-bg' : 'border-muted text-muted'
+                    days.includes(d) ? 'border-accent bg-accent text-bg' : 'border-edge text-muted'
                   )}
                 >
                   {label}
@@ -184,14 +197,14 @@ export default function TaskDetail() {
           <button
             type="button"
             onClick={() => void snooze(1)}
-            className="rounded border border-accent-2 px-2 py-1 text-xs text-accent-2 transition-colors hover:bg-accent-2/15"
+            className="notch [--notch:5px] border border-accent-2 px-2 py-1 font-display text-xs uppercase tracking-wider text-accent-2 transition-colors hover:bg-accent-2/15"
           >
             Snooze +1d
           </button>
           <button
             type="button"
             onClick={() => void snooze(7)}
-            className="rounded border border-accent-2 px-2 py-1 text-xs text-accent-2 transition-colors hover:bg-accent-2/15"
+            className="notch [--notch:5px] border border-accent-2 px-2 py-1 font-display text-xs uppercase tracking-wider text-accent-2 transition-colors hover:bg-accent-2/15"
           >
             Snooze +1w
           </button>
@@ -201,22 +214,22 @@ export default function TaskDetail() {
           type="button"
           onClick={() => void onSave()}
           disabled={!canSave}
-          className="mt-4 rounded bg-accent py-2 text-[15px] font-bold text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="notch [--notch:6px] mt-4 bg-accent py-2 font-display text-[15px] font-bold uppercase tracking-[0.14em] text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {saved ? 'Saved ✓' : 'Save'}
         </button>
-      </div>
+      </SystemPanel>
 
       <button
         type="button"
         onClick={() => void onArchive()}
-        className="mt-6 w-full rounded border border-muted py-2 text-[15px] text-muted transition-colors hover:border-fg hover:text-fg"
+        className="notch [--notch:6px] mt-6 w-full border border-edge py-2 font-display text-[15px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-fg hover:text-fg"
       >
         Archive
       </button>
       <p className="mt-2 text-xs text-muted">
         Archiving hides this quest but keeps all history. Restore from Profile → Archived.
       </p>
-    </div>
+    </motion.div>
   );
 }

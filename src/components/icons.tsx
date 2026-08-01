@@ -59,6 +59,35 @@ export function ChevronRightIcon({ className, size = 22 }: IconProps) {
   );
 }
 
+// Task-type marks for the quest row's icon cell. The design reference gives every quest a
+// thematic icon (a bicep, a brain, a moon); we can't ship an icon set per task without an
+// asset budget, so the icon carries the one thing that is always true and always useful —
+// what kind of quest this is.
+export function TodoIcon({ className, size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M4 12.5l5 5L20 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function HabitIcon({ className, size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6" strokeLinecap="round" />
+      <path d="M18 3v4h-4M6 21v-4h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CountedIcon({ className, size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M5 19V9M12 19V5M19 19v-6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>

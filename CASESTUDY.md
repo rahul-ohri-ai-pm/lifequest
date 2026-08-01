@@ -304,6 +304,57 @@ OPFS incompatibly. That's a real, unrecoverable loss for anyone running the old 
 flagged before a line was written rather than discovered afterward, and it moves the Phase 3 JSON
 export/import up the priority list. A backup feature is worth most before you need it.
 
+## Step 10 — "Make it look like this" (two images, no brief) (2026-08-02)
+
+**What happened**: The owner sent two Pinterest links and one sentence: make the app look like the
+first, with interactions like the second. No spec, no copy, no palette — the entire brief was two
+images.
+
+**Call 1 — read the references, don't skim their titles.** Pinterest's page text for the first pin
+said only *"Solo Leveling Daily Quest System — Build Your Strongest Self 💪 | Habit Tracker"*; the
+second said *"Website UI/UX Design"*. Designing from those two strings would have produced a
+generic "anime UI" that happened to be defensible in a status update and wrong in the app. So the
+references were actually opened: the first pulled at full resolution (1536×2752) and read as an
+image, the second — a 13.8-second screen recording — decoded and sampled frame by frame. That is
+where the *actual* brief was: framed quest rows with an icon cell, an inline progress bar and a
+reward tag on the right; a stat block; a hexagonal radar; a red warning panel. And in the video, a
+specific motion vocabulary: titles that resolve out of blur while their letter-spacing tightens,
+and one frame catching a card exactly edge-on, mid-flip. **The unglamorous work of looking at the
+reference properly was the whole difference between a redesign and a re-theme.**
+
+**Call 2 — a reference is an input to the spec, not a replacement for it.** The poster is
+violet/magenta; CLAUDE.md §5 specifies electric blue. Rather than silently repainting the app to
+match a mood board — or silently ignoring the mood board to protect the spec — the conflict went
+to the owner as a decision with its consequence spelled out. He kept blue. So the structure was
+adopted wholesale and the palette was not, and §5 needed no amendment. Same discipline on the
+motion reference: it is a desktop, scroll-jacked marketing site, and porting its section
+choreography would have put an animation *in front of* the "under 5 seconds to capture a task"
+goal that justifies the product. The vocabulary shipped; the scroll-jacking did not.
+
+**Call 3 — the reference argued against the product, and lost.** The poster's most striking
+element is a red panel reading **"EVERY SKIPPED QUEST = PERMANENT XP LOSS — NO RESET BUTTON,
+HARDCORE ENABLED."** It is also a direct contradiction of a founding goal: a forgiving,
+non-punishing system where a missed day never feels like the game is over. The easy move is to
+build what the picture shows. The move taken was to separate the *aesthetic* from the *mechanic*:
+the red panel exists, in the reference's exact visual language, and it reports how many quests are
+still unclaimed today. No XP is deducted anywhere in the app. A reference can be right about how
+something should look and wrong about how it should work, and telling those apart is the job.
+
+**What the constraint bought.** The lightweight rule (no new dependencies, no image assets) forced
+every ornament to be code: the frames are a CSS chamfer plus a two-layer gradient sandwich, the
+corner brackets are one SVG elbow rotated four times, the character portrait became a generated
+sigil. Total cost of the redesign on the wire: **+0.8 KB gzipped JavaScript and +1.8 KB gzipped
+CSS**, measured against a build of the previous commit rather than against a number in a doc.
+
+**Three bugs the redesign flushed out.** None were in scope; all were fixed. The dev server could
+not boot at all — React's StrictMode double-invokes effects, so two migration passes raced and the
+second died on "table tasks already exists" (invisible in production, which is why it had
+survived). The capture form's eight always-expanded chips filled the top third of the main screen
+before a single quest was visible. And a "render glitch" this project had been carrying in its
+notes since the last design pass turned out to be a black progress bar on a black panel with no
+border. **Rebuilding a surface is one of the more reliable ways to find what is wrong underneath
+it.**
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -322,6 +373,7 @@ export/import up the priority list. A backup feature is worth most before you ne
 | 2026-07-30 | "Re-run deploy but don't end up in a loop — last time you ended up in a loop" | Owner enabled Pages; one manual run went green and the app is live. The no-loop instruction was itself a process fix — see Step 8 |
 | 2026-08-02 | "Is magicuidesign installed?" | Answered with the real blocker rather than a yes/no: available as an MCP server, unusable against React Native primitives |
 | 2026-08-02 | "Let's remove Expo code and use Tailwind + framer-motion so that we can use Magic UI as is" | Full web rewrite (Step 9). Concern stated once, three shape-changing choices put to the owner, then delivered end-to-end. Engine, types, stores, and all SQL survived unchanged; 63/63 tests green on a new runner |
+| 2026-08-02 | "Make the web app look like *this*, with interactions like *this*" (two Pinterest links, no other brief) | Both references opened and actually read — the poster at full resolution, the motion clip decoded to frames — then taken *selectively*: structure adopted, palette rejected in favour of §5's blue, and the "permanent XP loss" framing kept as visuals only because it contradicts the forgiving-progression goal. Three shape-changing choices put to the owner before any code (Step 10) |
 | 2026-08-02 | "Merge and push, ensure everything is working first. Delete stale directories" | Clean-room `npm ci` + full gate, then the live site itself was exercised after deploy (round-trip, all routes, deep links, offline cold launch). A high-severity router advisory surfaced during the check and was cleared rather than waved past. 1.7 GB of dead Expo/Gradle output deleted |
 
 ---
@@ -353,6 +405,12 @@ export/import up the priority list. A backup feature is worth most before you ne
     lines unnecessary.
 13. **"Three of the four bugs failed silently."** Green tests, clean types, successful build,
     blank page. Why "it compiles" and "it runs" are unrelated claims.
+14. **"Your moodboard is not your spec."** My designer sent two images and no brief. Two of the
+    three biggest decisions were about what *not* to copy — including the reference's best-looking
+    element, which happened to argue against the product's founding promise.
+15. **"I nearly designed from the caption instead of the picture."** The pin's text said "habit
+    tracker"; the image said icon cell, inline progress bar, reward tag, radar chart. Reading the
+    reference properly was the whole difference between a redesign and a re-theme.
 
 ---
 

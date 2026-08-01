@@ -95,9 +95,11 @@ export default function Stats() {
           ]}
         />
         {p && (
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg">
+          // The track carries a border: an unbordered near-black bar on a near-black panel
+          // read as a render glitch rather than as an empty progress bar.
+          <div className="mt-2 h-2 overflow-hidden rounded-full border border-edge bg-bg-alt">
             <div
-              className="h-full rounded-full bg-accent transition-[width] duration-500"
+              className="h-full rounded-full bg-linear-to-r from-accent to-accent-2 transition-[width] duration-500"
               style={{ width: `${Math.min(p.progress * 100, 100)}%` }}
             />
           </div>
@@ -155,8 +157,8 @@ export default function Stats() {
             type="button"
             onClick={() => setRangeIdx(i)}
             className={cn(
-              'rounded-full border px-4 py-1 text-[13px] transition-colors',
-              i === rangeIdx ? 'border-accent bg-accent/15 text-accent' : 'border-panel text-muted'
+              'notch [--notch:5px] border px-4 py-1 font-display text-[13px] uppercase tracking-[0.12em] transition-colors',
+              i === rangeIdx ? 'border-accent bg-accent/15 text-accent' : 'border-edge text-muted'
             )}
           >
             {r.label}

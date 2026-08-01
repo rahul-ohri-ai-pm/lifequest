@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
+import { SystemPanel } from '../components/system/SystemPanel';
+import { RuneDivider } from '../components/system/RuneDivider';
 import { monthGrid } from '../engine/calendar';
 import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/time';
 import { getCompletionsBetween } from '../db/queries/completions';
@@ -96,11 +98,12 @@ export default function Calendar() {
 
   return (
     <div className="p-4 pb-8">
+      <SystemPanel glow innerClassName="px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
         <button type="button" onClick={prevMonth} aria-label="Previous month" className="p-2 text-accent">
           <ChevronLeftIcon />
         </button>
-        <h2 className="font-display text-lg text-fg">
+        <h2 className="font-display text-lg uppercase tracking-[0.14em] text-fg text-glow">
           {MONTHS[month]} {year}
         </h2>
         <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 text-accent">
@@ -110,7 +113,7 @@ export default function Calendar() {
 
       <div className="mb-1 grid grid-cols-7">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="text-center text-[11px] text-muted">
+          <div key={i} className="text-center font-display text-[11px] uppercase tracking-widest text-muted">
             {w}
           </div>
         ))}
@@ -127,8 +130,8 @@ export default function Calendar() {
                 type="button"
                 onClick={() => setSelected(cell.dayKey)}
                 className={cn(
-                  'relative m-px grid aspect-[1.1] place-items-center rounded border border-transparent text-[13px] text-fg transition-colors',
-                  isSelected && 'border-accent bg-panel',
+                  'notch [--notch:4px] relative m-px grid aspect-[1.1] place-items-center border border-transparent font-display text-[13px] text-fg transition-colors',
+                  isSelected && 'border-accent bg-panel-raised',
                   isToday && !isSelected && 'border-accent-2',
                   !cell.inMonth && 'text-muted opacity-40'
                 )}
@@ -137,7 +140,10 @@ export default function Calendar() {
                 {/* Filled = something was completed that day (real history).
                     Hollow = work planned for today/a future day, nothing logged yet. */}
                 {monthCompletionDays.has(cell.dayKey) ? (
-                  <span className="absolute bottom-1 size-[5px] rounded-full bg-accent" />
+                  <span
+                    className="absolute bottom-1 size-[5px] rounded-full bg-accent"
+                    style={{ boxShadow: '0 0 5px var(--color-accent)' }}
+                  />
                 ) : dayIsPlanned.get(cell.dayKey) ? (
                   <span className="absolute bottom-1 size-[5px] rounded-full border border-muted" />
                 ) : null}
@@ -147,10 +153,13 @@ export default function Calendar() {
         </div>
       ))}
 
-      <p className="mt-4 mb-2 text-[13px] text-muted">
-        {selected === todayKey ? 'Today' : selected}
-        {dayCompletions.length > 0 ? ` · ${dayCompletions.length} completed` : ''}
-      </p>
+      </SystemPanel>
+
+      <RuneDivider className="my-3" label={selected === todayKey ? 'Today' : selected} />
+
+      {dayCompletions.length > 0 && (
+        <p className="mb-2 text-center text-[13px] text-muted">{dayCompletions.length} completed</p>
+      )}
 
       {selectedTasks.length === 0 ? (
         <p className="text-[13px] text-muted">
@@ -165,10 +174,10 @@ export default function Calendar() {
               <button
                 type="button"
                 onClick={() => void navigate(`/task/${item.id}`)}
-                className="flex w-full items-center gap-2 rounded bg-panel p-2 text-left transition-colors hover:bg-panel-raised"
+                className="notch [--notch:6px] flex w-full items-center gap-2 border border-edge bg-panel p-2 text-left transition-colors hover:bg-panel-raised"
               >
                 <span
-                  className="size-2 shrink-0 rounded-full"
+                  className="size-2 shrink-0 rotate-45"
                   style={{ backgroundColor: difficultyColors[item.difficulty] }}
                 />
                 <span className="flex-1 truncate text-sm text-fg">{item.title}</span>

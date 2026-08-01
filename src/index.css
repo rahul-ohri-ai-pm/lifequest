@@ -33,6 +33,12 @@
 
   /* Driven by ShineBorder's inline --duration */
   --animate-shine: shine var(--duration) infinite linear;
+
+  /* Ambient parallax layer behind the panels (§5 motion). Transform-only so it stays on
+     the compositor — this runs forever, so it must never touch layout or paint. */
+  --animate-drift: drift 42s ease-in-out infinite alternate;
+  --animate-drift-slow: drift-slow 67s ease-in-out infinite alternate;
+  --animate-ring: ring-spin 24s linear infinite;
 }
 
 @keyframes shine {
@@ -44,6 +50,30 @@
   }
   100% {
     background-position: 0% 0%;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1.08);
+  }
+  to {
+    transform: translate3d(3%, 2%, 0) scale(1.14);
+  }
+}
+
+@keyframes drift-slow {
+  from {
+    transform: translate3d(2%, 1%, 0) scale(1.12);
+  }
+  to {
+    transform: translate3d(-2%, -1.5%, 0) scale(1.05);
+  }
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -63,6 +93,65 @@
   :focus-visible {
     @apply outline-accent outline-2 outline-offset-2;
   }
+
+  /* §3 targets low-end Android, and the ambient layers animate forever. Anyone who has
+     asked the OS for less motion gets the whole thing stilled — the CSS side here, and
+     the `motion` side via <MotionConfig reducedMotion="user"> in main.tsx. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* The "system window" frame from the design reference: corners are chamfered rather than
+   rounded, which is what separates a sci-fi HUD panel from a normal card. Applied to both
+   halves of SystemPanel's gradient-border sandwich, so the 1px edge follows the cut.
+   `--notch` is overridable per element (`[--notch:6px]`) for smaller chips. */
+@utility notch {
+  --notch: 10px;
+  clip-path: polygon(
+    var(--notch) 0,
+    calc(100% - var(--notch)) 0,
+    100% var(--notch),
+    100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,
+    var(--notch) 100%,
+    0 calc(100% - var(--notch)),
+    0 var(--notch)
+  );
+}
+
+/* Chamfer on one diagonal only — reads as "tab" rather than "panel". Used by the quest
+   row's reward tag. */
+@utility notch-diag {
+  --notch: 8px;
+  clip-path: polygon(
+    var(--notch) 0,
+    100% 0,
+    100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,
+    0 100%,
+    0 var(--notch)
+  );
+}
+
+/* Glowing display caps (§5). Two shadows: a tight one for legibility against the dark
+   background, a wide faint one for the bloom. */
+@utility text-glow {
+  text-shadow:
+    0 0 10px rgb(76 141 255 / 0.5),
+    0 0 28px rgb(76 141 255 / 0.22);
+}
+
+@utility text-glow-2 {
+  text-shadow:
+    0 0 10px rgb(139 92 246 / 0.5),
+    0 0 28px rgb(139 92 246 / 0.22);
 }
 
 @utility panel-glow {
@@ -74,4 +163,9 @@
 
 @utility panel-glow-strong {
   box-shadow: 0 0 12px rgb(76 141 255 / 0.9);
+}
+
+/* The reference's red WARNING block. Reserved for the alert tone — see SystemPanel. */
+@utility panel-glow-alert {
+  box-shadow: 0 0 10px rgb(229 72 77 / 0.4);
 }

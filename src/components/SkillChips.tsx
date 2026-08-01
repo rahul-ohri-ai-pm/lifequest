@@ -22,7 +22,7 @@ export function SkillChips({ skills, selected, onToggle }: Props) {
             type="button"
             aria-pressed={on}
             onClick={() => onToggle(s.id)}
-            className="rounded border px-2 py-1 text-xs transition-colors"
+            className="notch [--notch:4px] border px-2 py-1 font-display text-xs uppercase tracking-wider transition-colors"
             style={{ borderColor: color, color, backgroundColor: on ? `${color}33` : 'transparent' }}
           >
             {s.name}

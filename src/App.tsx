@@ -1,6 +1,9 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { NavLink, Route, Routes, useLocation } from 'react-router';
 import { DotPattern } from './components/ui/dot-pattern';
+import { SystemHeading } from './components/system/SystemHeading';
+import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
 import { runMigrations } from './db/migrations';
@@ -8,8 +11,6 @@ import { useCharacterStore } from './store/useCharacterStore';
 import { useSkillStore } from './store/useSkillStore';
 import { useTaskStore } from './store/useTaskStore';
 import { cn } from './lib/utils';
-import { text } from './constants/theme';
-import Today from './routes/Today';
 
 // Today is the initial route and loads eagerly; everything else is split out so a cold
 // start ships only what the first screen needs (§3 bundle discipline).
@@ -18,6 +19,7 @@ const Stats = lazy(() => import('./routes/Stats'));
 const Profile = lazy(() => import('./routes/Profile'));
 const Archived = lazy(() => import('./routes/Archived'));
 const TaskDetail = lazy(() => import('./routes/TaskDetail'));
+import Today from './routes/Today';
 
 const TABS = [
   { to: '/', label: 'Today', Icon: TodayIcon },
@@ -34,6 +36,29 @@ const TITLES: Record<string, string> = {
   '/archived': 'Archived',
 };
 
+// Boot runs exactly once per page, no matter how many times the effect fires. React's
+// StrictMode double-invokes effects in development, which started two `runMigrations` passes
+// against the same database concurrently: the second read `schema_migrations` before the
+// first had committed, decided 0001 was pending, and died on "table tasks already exists".
+// `getDb()` was already memoized this way; the migration + hydrate half was not.
+let bootPromise: Promise<void> | null = null;
+
+function boot(): Promise<void> {
+  bootPromise ??= (async () => {
+    const db = await getDb();
+    await runMigrations(db);
+    await Promise.all([
+      useCharacterStore.getState().hydrate(),
+      useTaskStore.getState().hydrate(new Date()),
+      useSkillStore.getState().hydrate(),
+    ]);
+  })().catch((cause: unknown) => {
+    bootPromise = null; // let a reload re-attempt rather than caching the failure forever
+    throw cause;
+  });
+  return bootPromise;
+}
+
 function Spinner() {
   return (
     <div className="grid flex-1 place-items-center p-8">
@@ -42,26 +67,47 @@ function Spinner() {
   );
 }
 
+// Ambient depth, taken from the motion reference's layered parallax scenes. Two very large,
+// very soft radial washes drifting on different periods read as depth behind the panels
+// without a single image — and because they only ever animate `transform`, they stay off the
+// paint path on a low-end phone (§3). The dot grid sits on top as the near layer.
+function Ambience() {
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+      <div
+        className="animate-drift absolute -left-1/4 -top-1/3 size-[120vmax] rounded-full opacity-60"
+        style={{
+          background: 'radial-gradient(circle, rgb(76 141 255 / 0.16) 0%, transparent 62%)',
+        }}
+      />
+      <div
+        className="animate-drift-slow absolute -bottom-1/2 -right-1/3 size-[110vmax] rounded-full opacity-50"
+        style={{
+          background: 'radial-gradient(circle, rgb(139 92 246 / 0.16) 0%, transparent 62%)',
+        }}
+      />
+      <DotPattern
+        width={22}
+        height={22}
+        cr={0.7}
+        glow
+        className="absolute inset-0 text-accent/15 [mask-image:radial-gradient(60vw_circle_at_50%_0%,#fff,transparent)]"
+      />
+    </div>
+  );
+}
+
 export function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const db = await getDb();
-        await runMigrations(db);
-        await Promise.all([
-          useCharacterStore.getState().hydrate(),
-          useTaskStore.getState().hydrate(new Date()),
-          useSkillStore.getState().hydrate(),
-        ]);
-        setReady(true);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      }
-    })();
+    void boot().then(
+      () => setReady(true),
+      (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+    );
   }, []);
 
   if (error) {
@@ -84,35 +130,49 @@ export function App() {
 
   return (
     <div className="relative flex h-dvh flex-col bg-bg">
-      {/* Ambient grid behind the panels — code-drawn, so it costs no asset budget (§5). */}
-      <DotPattern
-        width={22}
-        height={22}
-        cr={0.7}
-        glow
-        className="fixed inset-0 text-accent/15 [mask-image:radial-gradient(60vw_circle_at_50%_0%,#fff,transparent)]"
-      />
+      <Ambience />
+
+      {/* Lives at the shell level so a level-up lands wherever the user happens to be —
+          completing a quest from Today and from a task's detail screen both count. */}
+      <LevelUpOverlay />
 
       <div className="relative mx-auto flex h-full w-full max-w-lg flex-col">
-        <header className="shrink-0 border-b border-edge bg-bg-alt px-4 py-3">
-          <h1 className={text.screenTitle}>{title}</h1>
+        <header className="shrink-0 border-b border-edge bg-bg-alt/80 px-4 py-3 backdrop-blur-sm">
+          {/* animateKey re-runs the blur-in per screen, so the title resolves like a system
+              readout on every navigation rather than only on first mount. */}
+          <SystemHeading as="h1" size="lg" animateKey={pathname}>
+            {title}
+          </SystemHeading>
         </header>
 
         <main className="flex flex-1 flex-col overflow-y-auto overscroll-contain">
-          <Suspense fallback={<Spinner />}>
-            <Routes>
-              <Route path="/" element={<Today />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/stats" element={<Stats />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/archived" element={<Archived />} />
-              <Route path="/task/:id" element={<TaskDetail />} />
-              <Route path="*" element={<Today />} />
-            </Routes>
-          </Suspense>
+          {/* The motion reference cross-fades between sections with a touch of depth rather
+              than sliding. `mode="wait"` keeps the two screens from overlapping mid-scroll. */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              className="flex flex-1 flex-col"
+              initial={{ opacity: 0, scale: 0.985, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 1.01, filter: 'blur(4px)' }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              <Suspense fallback={<Spinner />}>
+                <Routes location={location}>
+                  <Route path="/" element={<Today />} />
+                  <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/stats" element={<Stats />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/archived" element={<Archived />} />
+                  <Route path="/task/:id" element={<TaskDetail />} />
+                  <Route path="*" element={<Today />} />
+                </Routes>
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
         </main>
 
-        <nav className="shrink-0 border-t border-panel bg-bg-alt pb-[env(safe-area-inset-bottom)]">
+        <nav className="shrink-0 border-t border-edge bg-bg-alt/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
           <ul className="flex">
             {TABS.map(({ to, label, Icon }) => (
               <li key={to} className="flex-1">
@@ -121,13 +181,27 @@ export function App() {
                   end={to === '/'}
                   className={({ isActive }) =>
                     cn(
-                      'flex flex-col items-center gap-1 py-2 text-[11px] transition-colors',
+                      'relative flex flex-col items-center gap-1 py-2 font-display text-[11px] uppercase tracking-[0.12em] transition-colors',
                       isActive ? 'text-accent' : 'text-muted hover:text-fg'
                     )
                   }
                 >
-                  <Icon />
-                  {label}
+                  {({ isActive }) => (
+                    <>
+                      {/* The active tab is marked the way the reference marks a selected
+                          system window — a lit rail and bracket ticks, not a colour swap. */}
+                      {isActive && (
+                        <motion.span
+                          layoutId="tab-rail"
+                          className="absolute inset-x-3 top-0 h-px bg-accent"
+                          style={{ boxShadow: '0 0 8px var(--color-accent)' }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 34 }}
+                        />
+                      )}
+                      <Icon className={isActive ? 'text-glow' : undefined} />
+                      {label}
+                    </>
+                  )}
                 </NavLink>
               </li>
             ))}

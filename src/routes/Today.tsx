@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { BlurFade } from '../components/ui/blur-fade';
 import { FastCapture } from '../components/FastCapture';
-import { TaskCard } from '../components/TaskCard';
+import { TaskCard, type Reward } from '../components/TaskCard';
 import { TodayHeader } from '../components/TodayHeader';
 import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { isScheduledDay } from '../engine/time';
+import { splitSkillXp, xpForDifficulty } from '../engine/xp';
 import type { Task } from '../types';
 import type { NewTask } from '../db/queries/tasks';
 
@@ -20,15 +21,22 @@ export default function Today() {
   const unskipTask = useTaskStore((s) => s.unskipTask);
   const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
 
-  // Card spine color = the first category tagged on the task (§5). Subscribe to raw state
-  // and derive here — a selector building this map would loop (see useSkillStore).
+  // The quest row's reward tag and spine color both come from the task's first tagged
+  // category (§5). Subscribe to raw state and derive here — a selector building this map
+  // would loop (see useSkillStore).
   const skills = useSkillStore((s) => s.skills);
   const taskSkills = useSkillStore((s) => s.taskSkills);
-  const spineFor = useMemo(() => {
-    const byId = new Map(skills.map((s) => [s.id, s.color]));
-    return (taskId: string) => {
-      const first = taskSkills[taskId]?.[0];
-      return first ? (byId.get(first) ?? null) : null;
+  const rewardFor = useMemo(() => {
+    const byId = new Map(skills.map((s) => [s.id, s]));
+    return (task: Task): Reward => {
+      const xp = xpForDifficulty(task.difficulty);
+      const tagged = taskSkills[task.id] ?? [];
+      const first = tagged.length ? byId.get(tagged[0]) : undefined;
+      // §7: character always banks the full XP, but the tag shows what the *skill* gets —
+      // that is the number the user is watching when they tag a task with two categories.
+      return first
+        ? { xp: splitSkillXp(xp, tagged.length), label: first.name, color: first.color }
+        : { xp, label: 'XP', color: null };
     };
   }, [skills, taskSkills]);
 
@@ -81,7 +89,7 @@ export default function Today() {
               <BlurFade delay={Math.min(i, 8) * 0.04}>
                 <TaskCard
                   task={task}
-                  spineColor={spineFor(task.id)}
+                  reward={rewardFor(task)}
                   done={isDone(task)}
                   hasCompletionToday={completedTaskIds.has(task.id)}
                   skippedToday={skippedTaskIds.has(task.id)}

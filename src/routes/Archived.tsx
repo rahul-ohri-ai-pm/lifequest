@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SystemPanel } from '../components/system/SystemPanel';
 import { getArchivedTasks } from '../db/queries/tasks';
 import { useTaskStore } from '../store/useTaskStore';
 import { difficultyColors } from '../constants/theme';
@@ -24,19 +25,25 @@ export default function Archived() {
   return (
     <ul className="flex flex-col gap-2 p-4">
       {archived.map((item) => (
-        <li
-          key={item.id}
-          className="flex items-center justify-between gap-2 rounded-lg border bg-panel p-4 opacity-80"
-          style={{ borderColor: difficultyColors[item.difficulty] }}
-        >
-          <span className="flex-1 truncate text-[15px] text-fg">{item.title}</span>
-          <button
-            type="button"
-            onClick={() => void onUnarchive(item)}
-            className="text-sm text-accent hover:underline"
+        <li key={item.id}>
+          <SystemPanel
+            brackets={false}
+            tone="quiet"
+            className="opacity-80"
+            innerClassName="flex items-stretch"
           >
-            Restore
-          </button>
+            <div className="w-[3px] shrink-0" style={{ backgroundColor: difficultyColors[item.difficulty] }} />
+            <div className="flex flex-1 items-center justify-between gap-2 px-4 py-3">
+              <span className="flex-1 truncate text-[15px] text-fg">{item.title}</span>
+              <button
+                type="button"
+                onClick={() => void onUnarchive(item)}
+                className="notch [--notch:5px] border border-edge px-2.5 py-1 font-display text-xs uppercase tracking-wider text-accent transition-colors hover:border-accent"
+              >
+                Restore
+              </button>
+            </div>
+          </SystemPanel>
         </li>
       ))}
     </ul>

@@ -46,7 +46,7 @@ errors. All four tabs render with the glow-panel style intact.
 |---|---|---|
 | U1 — Design foundations | ✅ Done (2026-07-30) | Diagnosed against real screenshots of the live app, not from memory. Four fixes: (1) **the display font was never shipped** — `fonts.ts` named Rajdhani but `assets/fonts/` didn't exist and `fontFamily` appeared nowhere, so everything rendered in system Helvetica; now loaded via `@expo-google-fonts/rajdhani`, two weights only; (2) `TaskCard` rebuilt — category-colored spine for scannability, metadata shown only when it says something (every row printed an identical "Medium · 25 XP"), 40pt complete target that fills and glows, ghost buttons replacing underlined pseudo-links; (3) `TodayHeader` puts level + XP bar on Today so completing a quest visibly moves something; (4) calendar dots now mean completion (filled) vs planned (hollow) — they previously marked "has a scheduled task", which put an identical dot on every square of every month, forever |
 
-Still open from the design pass (deliberately out of U1's scope): the capture panel occupies a third of the first screen with 8 category chips always expanded; Profile is ~85% empty; Stats opens with four zero-value panels, an empty 14-day chart, and a black bar in the TODAY panel that reads as a render glitch. The Stats rebuild is the natural home for the `dataviz` skill.
+~~Still open from the design pass (deliberately out of U1's scope): the capture panel occupies a third of the first screen with 8 category chips always expanded; Profile is ~85% empty; Stats opens with four zero-value panels, an empty 14-day chart, and a black bar in the TODAY panel that reads as a render glitch.~~ **All three closed by Phase 1.9 D1/D2** — the capture panel folds, Profile carries the sigil/stat-block/radar, and the "render glitch" turned out to be an unbordered progress track. Stats still opens with zero-value panels on a fresh install (that is honest, not a bug) and remains the natural home for the `dataviz` skill.
 
 ## Phase 1.8 (owner instruction — "remove Expo, use Tailwind + framer-motion so we can use Magic UI as is")
 
@@ -60,6 +60,23 @@ Still open from the design pass (deliberately out of U1's scope): the capture pa
 (865 KB / 406 KB gz) loaded in the worker and cached. Five routes are separately code-split
 (0.9–7.3 KB each). Catching `@fontsource/rajdhani/400.css` pulling the devanagari subset saved
 262 KB of never-rendered font files.
+
+## Phase 1.9 (owner instruction — "make it look like *this*", with two reference images)
+
+| Milestone | Status | Notes |
+|---|---|---|
+| D1 — System-window redesign | ✅ Done (2026-08-02) | Two Pinterest references — a *Solo Leveling* quest-system poster (look) and the Kamui landing page (motion). Both were **read, not guessed at**: the poster pulled at full 1536×2752, the 13.8s motion clip decoded and sampled at 1.5fps, because the pin titles alone would have produced a generic "anime UI" brief. Three owner calls recorded as DECISIONS D26: keep §5's blue primary (the poster is violet — structure adopted, palette rejected), take the "permanent XP loss / hardcore" panel as **visuals only** (it contradicts §2, so it reports unclaimed quests and deducts nothing), and port the motion *vocabulary* rather than the scroll choreography (the reference is a desktop marketing site; its section transitions would sit in front of the <5s capture goal). New `src/components/system/` primitives — `SystemPanel` (chamfered frame, gradient edge, corner brackets), `RuneDivider`, `SystemHeading` (blur + tracking-in), `StatBar`, `SkillRadar`, `Sigil`, `LevelUpOverlay` — all inline SVG/CSS, no new dependency (D27). Applied across all six screens: quest rows now carry a type mark, an inline progress bar and a `+13 CAREER` reward tag computed from the engine's existing `splitSkillXp`; Profile went from ~85% empty to sigil + stat block + radar; TaskDetail opens on a 3D Y-flip; routes cross-fade with depth |
+| D2 — Fixes found on the way | ✅ Done (2026-08-02) | Three real problems surfaced while building, each fixed rather than worked around: **(1) the dev server could not boot at all** — StrictMode double-invokes effects, so two `runMigrations` passes raced and the second died on "table tasks already exists" (`getDb()` was memoized, the migrate+hydrate half was not; now behind a module-level `bootPromise`). Dev-only, which is why it survived: production builds don't double-invoke. **(2)** The capture form's eight always-expanded category chips filled the top third of Today before a single quest was visible — options now fold until the field is touched, capture itself unchanged at type-and-Add. **(3)** The Stats "TODAY" panel's black-on-black progress bar — carried in this file as a suspected render glitch since Phase 1.7 — was an unbordered track on a near-black panel; it has a border now |
+
+**Verification**: 63/63 engine tests pass **unchanged** (the check that this stayed presentation-only
+— `src/engine/` was not touched), plus typecheck, lint and a production build. Then driven in
+headless Chromium against the **built** bundle, not just the dev server: boot → migrations → create
+three quest types → complete → **reload with data and XP persisted** → all five routes → task detail
+→ level-up overlay at the 280-XP threshold. `prefers-reduced-motion: reduce` confirmed to still the
+ambient layers and resolve headings instantly. Bundle measured against a `git worktree` build of the
+previous commit rather than against the number written here: initial load **426.3 KB raw / 135.8 KB
+gz vs 419.6 / 136.9 before** — flat, and marginally smaller gzipped. CSS +1.8 KB gz. Five routes
+still separately code-split; fonts still latin-subset only.
 
 ## Phase 2
 
