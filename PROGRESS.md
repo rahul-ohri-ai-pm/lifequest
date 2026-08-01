@@ -48,6 +48,17 @@ errors. All four tabs render with the glow-panel style intact.
 
 Still open from the design pass (deliberately out of U1's scope): the capture panel occupies a third of the first screen with 8 category chips always expanded; Profile is ~85% empty; Stats opens with four zero-value panels, an empty 14-day chart, and a black bar in the TODAY panel that reads as a render glitch. The Stats rebuild is the natural home for the `dataviz` skill.
 
+## Phase 1.8 (owner instruction — "remove Expo, use Tailwind + framer-motion so we can use Magic UI as is")
+
+| Milestone | Status | Notes |
+|---|---|---|
+| X1 — De-Expo rewrite | ✅ Done (2026-08-02) | Expo removed entirely; React + Vite + Tailwind v4 + React Router + Magic UI, web-only (DECISIONS D20–D24). **`src/engine/`, `src/types/`, `src/store/` and every SQL statement moved unchanged** — all 63 engine tests passed on the new runner (Vitest) with no edits, which is the §3 purity rule paying for itself. Driver swapped from expo-sqlite to `@sqlite.org/sqlite-wasm` behind a new 4-method `SqlDatabase` interface, so `db/queries/*` and `db/migrations/*` compiled untouched. SQLite now runs in a dedicated worker on the `opfs-sahpool` VFS, which needs no cross-origin isolation — the COOP/COEP service-worker workaround is deleted. Verified in headless Chrome end-to-end: boot → migrations → 8 default skills → create quest → complete (XP 0→25) → **reload → task and XP both persisted**. Four traps found and recorded on the way (GOTCHAS 22–28) |
+
+**Bundle**: initial JS ~410 KB raw / ~135 KB gzipped across five chunks, plus the SQLite wasm
+(865 KB / 406 KB gz) loaded in the worker and cached. Five routes are separately code-split
+(0.9–7.3 KB each). Catching `@fontsource/rajdhani/400.css` pulling the devanagari subset saved
+262 KB of never-rendered font files.
+
 ## Phase 2
 
 | Item | Status |
@@ -69,9 +80,20 @@ Still open from the design pass (deliberately out of U1's scope): the capture pa
 
 ## Known issues / tech debt
 
-- ~~expo-router default tabs bundle a 956KB Material Symbols font~~ — fixed in M9 (metro.config.js resolves the package to an empty module; custom SVG tabBarIcons everywhere)
-- Web entry bundle is 1.3MB (plus a 621KB SQLite wasm, fetched once and cached). Fine over HTTPS with a service worker, but it's the number to watch against the §3 lightweight rule — Phase 2/3 screens should keep leaning on Expo Router's per-route splitting
-- The web build has no automated regression test in CI yet: the browser end-to-end pass was run locally (scripted Playwright). The deploy workflow gates on typecheck + jest only. Worth adding if the web app becomes the only channel
-- **The live site has not been confirmed on the owner's real phone yet.** The 13/13 pass was headless Chromium; iOS Safari differs on OPFS quota, service-worker lifetime, and home-screen-launch storage scoping. Not done until a quest survives a real close-and-reopen on the device
-- `.npmrc` uses `legacy-peer-deps` (react-dom peer conflict in Expo SDK 57 tree) — revisit on SDK upgrade
-- jest pinned to 29.x for jest-expo 57 compatibility
+- **Existing on-device data does not survive the X1 rewrite.** expo-sqlite's web build and the
+  sahpool VFS lay out OPFS incompatibly, so the deployed app starts empty for anyone who used the
+  old one. Nothing can be done retroactively — the Phase 3 JSON export/import is the recovery
+  story, and this is an argument for building it sooner (GOTCHAS 28)
+- Vendored Magic UI components are a manual-update path: there is no lockfile pinning them, so
+  upstream fixes have to be re-pulled deliberately. The lint config exempts `src/components/ui/**`
+  from two rules to keep them diffable against upstream
+- No automated browser regression test in CI. The X1 end-to-end pass was a local scripted headless
+  Chrome run over CDP; the deploy workflow gates on typecheck + tests + lint + build only. Now that
+  web is the *only* channel, this is the most valuable piece of missing coverage
+- **The live site has not been confirmed on the owner's real phone yet.** All passes have been
+  headless Chromium; iOS Safari differs on OPFS quota, service-worker lifetime, and
+  home-screen-launch storage scoping. Not done until a quest survives a real close-and-reopen on
+  the device
+- `sqlite3-worker1.js` and `sqlite3-opfs-async-proxy.js` (~243 KB combined) are emitted into
+  `dist/` because the sqlite-wasm entrypoint references them, but the sahpool path never loads
+  them. Dead weight on disk, not on the wire — not worth patching the package to strip

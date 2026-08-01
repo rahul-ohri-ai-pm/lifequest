@@ -1,18 +1,17 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { Platform } from 'react-native';
+import type { SqlDatabase } from './sqlite';
 
 // Every write path that touches XP has to be atomic *and* non-interleaved — that's what the
 // `character.total_xp === SUM(completions.xp_awarded)` invariant rests on (GOTCHAS #6, #7).
 //
-// On native, `withExclusiveTransactionAsync` delivers that by running the callback on its own
-// connection. Web has no equivalent (expo-sqlite throws outright): the whole database lives in
-// one worker behind a single connection. Downgrading to `withTransactionAsync` would keep
-// atomicity but quietly drop exclusivity — a second writer could BEGIN between our completion
-// INSERT and our character UPDATE. So on web we rebuild exclusivity in JS: every write
-// transaction, and every read that must not see a half-applied one, goes through a single
-// promise chain and therefore cannot overlap.
+// There is one database connection (the opfs-sahpool VFS is single-connection by design),
+// so SQLite gives us no exclusive-transaction primitive to lean on: a second writer could
+// BEGIN between our completion INSERT and our character UPDATE. Exclusivity is therefore
+// rebuilt in JS — every write transaction, and every read that must not observe a
+// half-applied one, goes through a single promise chain and so cannot overlap.
 //
-// Use these helpers instead of calling the expo-sqlite transaction methods directly.
+// Individual statements are synchronous under this VFS, but the callbacks below are async
+// and interleave at every await, so the chain is still doing real work. Use these helpers
+// rather than issuing BEGIN/COMMIT by hand.
 
 let chain: Promise<unknown> = Promise.resolve();
 
@@ -28,14 +27,9 @@ function serialize<T>(work: () => Promise<T>): Promise<T> {
 }
 
 export async function withWriteTransaction(
-  db: SQLiteDatabase,
-  task: (txn: SQLiteDatabase) => Promise<void>
+  db: SqlDatabase,
+  task: (txn: SqlDatabase) => Promise<void>
 ): Promise<void> {
-  if (Platform.OS !== 'web') {
-    await db.withExclusiveTransactionAsync(task);
-    return;
-  }
-
   await serialize(async () => {
     await db.execAsync('BEGIN');
     try {
@@ -50,8 +44,7 @@ export async function withWriteTransaction(
   });
 }
 
-// For reads that must not observe a partially-applied write transaction. No-op on native,
-// where writers hold a separate connection and readers are already isolated from them.
+// For reads that must not observe a partially-applied write transaction.
 export async function runSerializedRead<T>(read: () => Promise<T>): Promise<T> {
-  return Platform.OS === 'web' ? serialize(read) : read();
+  return serialize(read);
 }

@@ -1,21 +1,15 @@
 # Dependencies
 node_modules/
 
-# Expo
-.expo/
+# Build output
 dist/
-web-build/
-expo-env.d.ts
 
-# Native builds (managed workflow — regenerated, never committed)
+# Leftovers from the pre-2026-08-02 Expo build. Nothing generates these any more, but they
+# still exist on dev machines that ran the old toolchain — keep them ignored so a stale
+# local `android/` never lands in the repo. Safe to delete by hand.
+.expo/
 android/
 ios/
-*.apk
-*.aab
-*.ipa
-
-# Metro
-.metro-health-check*
 
 # Testing
 coverage/

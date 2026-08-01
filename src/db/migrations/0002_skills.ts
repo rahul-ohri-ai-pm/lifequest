@@ -1,5 +1,4 @@
-import * as Crypto from 'expo-crypto';
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SqlDatabase } from '../sqlite';
 
 export const version = 2;
 export const name = 'skills';
@@ -16,7 +15,7 @@ const DEFAULT_SKILLS: Array<[name: string, color: string]> = [
   ['Stock Trading', '#A3E635'],
 ];
 
-export async function up(db: SQLiteDatabase): Promise<void> {
+export async function up(db: SqlDatabase): Promise<void> {
   await db.execAsync(`
     CREATE TABLE skills (
       id         TEXT PRIMARY KEY,
@@ -38,7 +37,7 @@ export async function up(db: SQLiteDatabase): Promise<void> {
   for (const [skillName, color] of DEFAULT_SKILLS) {
     await db.runAsync(
       'INSERT INTO skills (id, name, icon, color, total_xp, level, created_at) VALUES (?, ?, NULL, ?, 0, 1, ?)',
-      Crypto.randomUUID(),
+      crypto.randomUUID(),
       skillName,
       color,
       now

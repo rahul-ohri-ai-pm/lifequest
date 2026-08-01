@@ -28,12 +28,14 @@ jobs:
           node-version: 22
           cache: npm
 
-      # .npmrc already sets legacy-peer-deps, which `npm ci` needs here (GOTCHAS #2).
       - run: npm ci
 
       # The engine holds all the game math (§3); a red build must never reach the phone.
+      # build:web runs typecheck itself, but running it first fails the job on a type
+      # error before spending time on the bundle.
       - run: npm run typecheck
       - run: npm test
+      - run: npm run lint
 
       - run: npm run build:web
 

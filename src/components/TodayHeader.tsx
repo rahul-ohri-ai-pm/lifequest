@@ -1,16 +1,18 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedCircularProgressBar } from './ui/animated-circular-progress-bar';
+import { NumberTicker } from './ui/number-ticker';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { levelProgress } from '../engine/xp';
-import { colors, radii, spacing, text, type } from '../constants/theme';
+import { colors, text } from '../constants/theme';
 
 interface Props {
   doneCount: number;
   totalCount: number;
 }
 
-// The core loop is "complete something, watch the bar move". Level and XP used to
-// live only on the Profile tab, so completing a quest on Today produced no visible
-// progression at all — this puts the progression where the action is.
+// The core loop is "complete something, watch the bar move". Level and XP used to live
+// only on the Profile tab, so completing a quest on Today produced no visible progression
+// at all — this puts the progression where the action is. The gauge and the ticker are
+// the §5 "motion" budget being spent where the payoff is.
 export function TodayHeader({ doneCount, totalCount }: Props) {
   const character = useCharacterStore((s) => s.character);
   if (!character) return null;
@@ -19,63 +21,37 @@ export function TodayHeader({ doneCount, totalCount }: Props) {
   const pct = Math.min(p.progress * 100, 100);
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.row}>
-        <View style={styles.levelBadge}>
-          <Text style={styles.levelNum}>{p.level}</Text>
-        </View>
-        <View style={styles.barCol}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Level {p.level}</Text>
-            <Text style={styles.xp}>
-              {character.totalXp} / {p.nextLevelXp} XP
-            </Text>
-          </View>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${pct}%` }]} />
-          </View>
-        </View>
-      </View>
+    <header className="flex flex-col gap-2 px-4 pt-4 pb-1">
+      <div className="flex items-center gap-4">
+        <AnimatedCircularProgressBar
+          value={pct}
+          gaugePrimaryColor={colors.accent}
+          gaugeSecondaryColor={colors.panelBorder}
+          className="size-14 shrink-0"
+        >
+          <span className="font-display text-xl text-accent">{p.level}</span>
+        </AnimatedCircularProgressBar>
+
+        <div className="flex flex-1 flex-col gap-1.5">
+          <div className="flex items-end justify-between">
+            <span className={text.panelLabel}>Level {p.level}</span>
+            <span className="font-display text-[13px] text-muted">
+              <NumberTicker value={character.totalXp} /> / {p.nextLevelXp} XP
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded border border-edge bg-bg-alt">
+            <div
+              className="h-full bg-accent transition-[width] duration-500 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      </div>
       {totalCount > 0 && (
-        <Text style={styles.progress}>
+        <p className="text-xs text-muted">
           {doneCount} of {totalCount} done today
-        </Text>
+        </p>
       )}
-    </View>
+    </header>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  levelBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 2,
-    borderColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.panel,
-  },
-  levelNum: { fontFamily: type.display, fontSize: 22, color: colors.accent },
-  barCol: { flex: 1, gap: 6 },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  label: { ...text.panelLabel },
-  xp: { fontFamily: type.displayRegular, fontSize: 13, color: colors.textSecondary },
-  track: {
-    height: 8,
-    borderRadius: radii.sm,
-    backgroundColor: colors.backgroundAlt,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', backgroundColor: colors.accent },
-  progress: { ...text.meta },
-});

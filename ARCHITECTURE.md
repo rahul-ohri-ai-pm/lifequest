@@ -5,11 +5,16 @@ one. The spec behind this is [CLAUDE.md](CLAUDE.md) §3–§4; this file describ
 exists.
 
 ```
-app/            UI routes (Expo Router)      — imports store, components, engine (read-only helpers)
+src/routes/     UI routes (React Router)     — imports store, components, engine (read-only helpers)
 src/store/      Zustand stores               — imports db/queries + engine
-src/db/         SQLite client, migrations, queries — imports engine (level math only) + expo-sqlite
-src/engine/     PURE TypeScript game math    — imports NOTHING but src/types. No React/Expo/DB/IO.
+src/db/         SQLite client, migrations, queries — imports engine (level math only)
+src/engine/     PURE TypeScript game math    — imports NOTHING but src/types. No React/DOM/DB/IO.
 ```
+
+The 2026-08-02 rewrite swapped the entire UI framework (React Native + Expo → React + Vite +
+Tailwind) and the entire SQLite driver, and the bottom two layers did not change: `src/engine/`,
+`src/types/`, `src/store/`, and every SQL statement moved across untouched, with all 63 engine
+tests passing on the new runner without edits. That is the layering earning its keep.
 
 ## File map
 
@@ -20,33 +25,39 @@ src/engine/     PURE TypeScript game math    — imports NOTHING but src/types. 
 | `src/engine/time.ts` | `dayKeyFor` (LOCAL date key), `addDays` (DST-safe), `dateFromDayKey`, `dayWindow` (local day → ISO range), `isScheduledDay` |
 | `src/engine/counted.ts` | `xpForCountedLog` — the one-award-per-day threshold rule |
 | `src/engine/calendar.ts` | `monthGrid(year, month)` — calendar screen's grid data |
-| `src/engine/__tests__/` | 48 tests. Every engine function is covered; keep it that way |
-| `src/db/client.ts` | `getDb()` singleton (async API, foreign_keys ON); dev-only `resetDb()`; web cross-origin-isolation precondition check |
-| `src/db/transaction.ts` | `withWriteTransaction()` / `runSerializedRead()` — the ONLY place platform differs. Real exclusive transaction on native; serialized promise chain on web, which has no exclusive transactions |
+| `src/engine/__tests__/` | 63 tests. Every engine function is covered; keep it that way |
+| `src/db/sqlite.ts` | The `SqlDatabase` interface (4 methods) everything above `db/` is written against. Survived a full driver swap unchanged |
+| `src/db/client.ts` | `getDb()` singleton; owns the worker request/response protocol and the user-facing "could not open the database" error. The ONLY file that knows which SQLite build is in use |
+| `src/db/sqlite.worker.ts` | sqlite-wasm + `opfs-sahpool` VFS (worker-only API), `foreign_keys` ON, strictly ordered request queue |
+| `src/db/transaction.ts` | `withWriteTransaction()` / `runSerializedRead()` — serialized promise chain. The sahpool VFS is single-connection, so exclusivity is rebuilt in JS; this is what the XP invariant rests on |
 | `src/db/migrations/index.ts` | Runner: applies pending migrations in version order, each in its own exclusive transaction |
 | `src/db/migrations/0001_init.ts` | Phase 1 schema (tasks, completions, skips, character, settings + indexes). SHIPPED — never edit |
 | `src/db/queries/tasks.ts` | Task CRUD + archive/unarchive. `NewTask`/`TaskPatch` input types live here |
-| `src/db/queries/completions.ts` | `logCompletion`/`undoCompletion` (atomic XP write paths), day-window reads, `__DEV__` XP-sum invariant |
+| `src/db/queries/completions.ts` | `logCompletion`/`undoCompletion` (atomic XP write paths), day-window reads, dev-only XP-sum invariant (`import.meta.env.DEV`) |
 | `src/db/queries/character.ts` | `getCharacter()` (singleton row, id = 1) |
 | `src/db/queries/skips.ts` | `addSkip`/`removeSkip`/`getSkipsForDay` (stats-only, no XP) |
 | `src/store/useTaskStore.ts` | tasks + completionsToday + skipsToday; all task mutations |
 | `src/store/useCharacterStore.ts` | character projection; `setFromPersisted` only accepts DB-returned rows |
-| `app/_layout.tsx` | Startup gate: migrations → store hydration → render. Nothing renders before the DB is ready |
-| `app/(tabs)/index.tsx` | Today view: filters habits by schedule, fast capture, complete/undo/skip/+1 |
-| `app/(tabs)/calendar.tsx` | Month grid + selected-day task list |
-| `app/(tabs)/profile.tsx` | Level, XP bar, link to archived list |
-| `app/(tabs)/stats.tsx` | Placeholder (Phase 2 skill dashboard) |
-| `app/task/[id].tsx` | Edit form (all fields incl. type-specific) + snooze + archive |
-| `app/archived.tsx` | Archived tasks with restore |
-| `src/components/` | `FastCapture`, `TaskCard`, `icons` (inline SVG tab icons), `ScreenPlaceholder` |
-| `src/constants/theme.ts` | ALL colors/spacing/radii/glow tokens. Never hardcode a color in a screen |
+| `src/main.tsx` | React root, `BrowserRouter` basename, service-worker registration |
+| `src/App.tsx` | Startup gate (open DB → migrate → hydrate stores → render), layout, tab bar, route table. Nothing renders before the DB is ready. Non-initial routes are `React.lazy` |
+| `src/routes/Today.tsx` | Today view: filters habits by schedule, fast capture, complete/undo/skip/+1 |
+| `src/routes/Calendar.tsx` | Month grid + selected-day task list |
+| `src/routes/Profile.tsx` | Level, XP bar, link to archived list |
+| `src/routes/Stats.tsx` | Stats dashboard: hero tiles, 14-day chart, follow-through, per-category and top-quest bars |
+| `src/routes/TaskDetail.tsx` | Edit form (all fields incl. type-specific) + snooze + archive |
+| `src/routes/Archived.tsx` | Archived tasks with restore |
+| `src/components/` | `FastCapture`, `TaskCard`, `TodayHeader`, `SkillChips`, `StatPanel`, `icons` (inline SVG) |
+| `src/components/ui/` | Magic UI primitives vendored from the registry (`BorderBeam`, `NumberTicker`, `BlurFade`, `ShineBorder`, `DotPattern`, `AnimatedCircularProgressBar`). Kept close to upstream — customise the *callers*, not these |
+| `src/lib/utils.ts` | `cn()` — clsx + tailwind-merge, the shadcn/Magic UI class-merge helper |
+| `src/index.css` | Tailwind entry; the §5 palette as `@theme` tokens (single source of truth for color) + the display font |
+| `src/constants/theme.ts` | Color *values* for the cases a class can't cover: SVG props, gauge colors, data-driven inline styles. Mirrors `index.css` — keep in sync |
 | `src/types/index.ts` | Domain types for all three phases (camelCase; DB rows are snake_case, mapped in queries) |
-| `metro.config.js` | Strips expo-router's 956KB default icon font; adds `wasm` to assetExts for SQLite-on-web — see GOTCHAS.md |
-| `app/+html.tsx` | Web-only document shell: PWA metadata, service-worker registration, no-flash dark background. Never reaches the native bundle |
-| `public/sw.js` | Service worker: supplies COOP/COEP (cross-origin isolation, required by SQLite-wasm) and caches the shell for offline launch |
+| `index.html` | Document shell: PWA metadata, pre-mount dark background paint (no white flash) |
+| `vite.config.ts` | `base` (unconditional — GOTCHAS 22), ES worker format, sqlite-wasm optimizeDeps exclusion |
+| `vitest.config.ts` | Test config; separate from `vite.config.ts` on purpose — GOTCHAS 26 |
+| `public/sw.js` | Service worker: caches the shell for offline launch. No longer forges COOP/COEP — see DECISIONS D23 |
 | `public/manifest.webmanifest`, `public/icon-*.png` | PWA install metadata + home-screen icons |
-| `public/_headers` | Same headers for hosts that can set them (Netlify/Cloudflare); GitHub Pages ignores it |
-| `scripts/finalize-web-export.mjs` | Post-export: writes `.nojekyll` (GitHub Pages would otherwise 404 all of `_expo/`) and `404.html` (SPA fallback for dynamic routes) |
+| `scripts/finalize-web-export.mjs` | Post-build: writes `.nojekyll` and `404.html` (SPA fallback for deep links) |
 | `.github/workflows/deploy-web.yml` | Push to `main` → typecheck + tests + build → publish `dist/` to GitHub Pages |
 
 ## Data flow — every mutation follows the same shape
@@ -96,18 +107,22 @@ day to an ISO range for SQL `BETWEEN`-style queries; `dayKeyFor(date)` produces 
 N4). The remaining Phase 2/3 tables (`streaks`, `streak_resets`, `badge_unlocks`, `goals`) do NOT
 exist yet; they arrive with their features as new migration files.
 
-## Platforms
+## Platform
 
-One codebase, three targets (Android, iOS, web). The web build is an installable PWA and is the
-primary channel the owner uses — see README for build/deploy.
+Web only, as of 2026-08-02 (DECISIONS D20). One installable PWA; Android/iOS are no longer targets
+and no React Native code remains. See README for build/deploy.
 
-**What differs on web, and where**: exactly one file, `src/db/transaction.ts`. expo-sqlite's web
-build runs SQLite as WebAssembly in a worker, persisting to the browser's OPFS storage, and has no
-exclusive transactions — so that module provides the exclusivity the XP invariant needs (real
-exclusive transaction on native, serialized promise chain on web). Everything else — `src/engine/`,
-the queries, the stores, every screen — is platform-agnostic and untouched.
+**Where the data lives**: SQLite compiled to WebAssembly, in a dedicated worker
+(`src/db/sqlite.worker.ts`), persisting to the browser's OPFS via the `opfs-sahpool` VFS. That VFS
+is single-connection, so `src/db/transaction.ts` rebuilds write-exclusivity in JS with a promise
+chain — that chain is what the `character.total_xp === SUM(xp_awarded)` invariant rests on.
 
-**What web needs from its host**: cross-origin isolation, because `SharedArrayBuffer` is how the
-page talks to the SQLite worker. `public/sw.js` supplies the headers itself so the app can be hosted
-on GitHub Pages, which cannot set them. This is why the first page visit reloads once, and why the
-app cannot run over plain HTTP or in a private window (GOTCHAS 12–17).
+**What the host must provide**: nothing but static files and HTTPS. `opfs-sahpool` needs no
+cross-origin isolation, so no COOP/COEP headers are required and `public/sw.js` no longer forges
+any. The app still cannot run over plain HTTP or in a private window, because OPFS requires a
+secure context.
+
+**Three seams keep the platform swappable**, and all three were proven by this rewrite:
+`src/engine/` (pure math, zero framework imports), `src/db/sqlite.ts` (a 4-method interface every
+query is written against), and `src/store/` (talks only to query functions). Changing the UI
+framework and the database driver at once touched none of them.

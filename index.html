@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <title>LifeQuest</title>
+    <meta name="description" content="Offline-first gamified daily task tracker." />
+    <meta name="theme-color" content="#0A0E17" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon-192.png" />
+
+    <!-- iOS ignores the manifest for home-screen launches and reads these instead. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LifeQuest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+
+    <!-- Paint the app background before React mounts so a cold launch on a dark UI never
+         flashes white, and stop the whole-document rubber-band scroll (§5 is a fixed-viewport,
+         app-like layout; the panes manage their own scrolling). -->
+    <style>
+      html,
+      body,
+      #root {
+        background-color: #0a0e17;
+        color-scheme: dark;
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        overscroll-behavior-y: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

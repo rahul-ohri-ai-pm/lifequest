@@ -252,6 +252,58 @@ holding the line between "it works" and "they have it," designing status checks 
 
 ---
 
+## Step 9 — "Remove Expo, use Tailwind + framer-motion so we can use Magic UI as is" (2026-08-02)
+
+**The ask.** The owner asked whether the Magic UI component library was installed. It was available
+as an MCP server but unusable: Magic UI is React-DOM + Tailwind + framer-motion, and LifeQuest was
+React Native. The response laid out that gap plainly rather than hand-waving it. The owner's reply
+was to remove the obstacle: drop Expo, adopt the web stack, use the components as-is.
+
+**The concern, stated once, then executed.** This was a full UI rewrite, it dropped Android/iOS
+entirely, and framer-motion cut against the "extremely lightweight" rule in the spec. All of that
+was said in three sentences up front — and then the work was done in full, because the tradeoff was
+the owner's to make and they'd already made it. Three decisions that genuinely changed the shape of
+the work were put to them as choices (persistence layer, build tool, whether native was really
+dead); everything else was a judgment call taken without a meeting.
+
+**What the rewrite actually cost — and what it didn't.** This is the interesting part. Of ~3,600
+lines, the UI layer (~1,100 lines) was rewritten and **the correctness-critical code moved
+untouched**: `src/engine/` (all the XP, level, streak, and stats math), `src/types/`, the Zustand
+stores, and every SQL statement. All 63 engine tests passed on a completely different test runner
+with zero edits.
+
+That wasn't luck. The spec's §3 hard rule — *all game math lives in `src/engine/` as pure
+TypeScript, no framework imports, no DB calls* — was written in the very first document, before any
+code existed, and its stated justification back then was "this is what makes the math unit-testable
+without mounting a screen." The rewrite revealed a second payoff nobody had planned for: a rule
+written for testability turned out to be a rule about **portability**. The framework became a
+detail you could throw away.
+
+The database got the same treatment on the fly: a 4-method `SqlDatabase` interface was extracted so
+`db/queries/*` and `db/migrations/*` kept compiling across a total driver swap (expo-sqlite →
+`@sqlite.org/sqlite-wasm`). One file knows what the database actually is.
+
+**A workaround that deleted itself.** The old build needed a hand-rolled service worker to forge
+COOP/COEP headers, because SQLite-on-wasm reached its worker over `SharedArrayBuffer` and GitHub
+Pages cannot set headers (Step 7's cleverest hack). Switching to the `opfs-sahpool` VFS removed the
+requirement entirely — no isolation, no headers, no workaround. Fifty lines of ingenuity deleted by
+picking a different primitive. Worth remembering the next time a clever fix feels satisfying.
+
+**Verification found four real traps.** A green build proves nothing about whether an app starts.
+Loading it in a real headless browser caught, in order: a blank page with a *silent* console
+(conditional `base` path → the SPA fallback served HTML where a module was expected); "Missing
+required OPFS APIs" despite OPFS being present (the sahpool VFS is worker-only); an infinite
+loading spinner (a rejected init promise seeded into the worker's request queue, so failures
+produced silence instead of an error); and 262 KB of devanagari font files for a UI that renders
+only latin. Three of the four failed *silently* — none would have been caught by tests, types, or
+the bundler. The end-to-end check that mattered was the dull one: create a quest, complete it,
+reload the page, confirm the XP came back.
+
+**The honest cost.** Existing on-device data does not carry over — the two SQLite builds lay out
+OPFS incompatibly. That's a real, unrecoverable loss for anyone running the old version, it was
+flagged before a line was written rather than discovered afterward, and it moves the Phase 3 JSON
+export/import up the priority list. A backup feature is worth most before you need it.
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -268,6 +320,8 @@ holding the line between "it works" and "they have it," designing status checks 
 | 2026-07-29 | "The APK doesn't work. Let's make it a web application" | Pivoted distribution to an installable PWA on GitHub Pages; W1 shipped and browser-verified same day (Step 7) |
 | 2026-07-30 | "Always work on main branch" | Dropped the session-branch workflow — single-user repo, no review gate, branches were ceremony |
 | 2026-07-30 | "Re-run deploy but don't end up in a loop — last time you ended up in a loop" | Owner enabled Pages; one manual run went green and the app is live. The no-loop instruction was itself a process fix — see Step 8 |
+| 2026-08-02 | "Is magicuidesign installed?" | Answered with the real blocker rather than a yes/no: available as an MCP server, unusable against React Native primitives |
+| 2026-08-02 | "Let's remove Expo code and use Tailwind + framer-motion so that we can use Magic UI as is" | Full web rewrite (Step 9). Concern stated once, three shape-changing choices put to the owner, then delivered end-to-end. Engine, types, stores, and all SQL survived unchanged; 63/63 tests green on a new runner |
 
 ---
 
@@ -291,6 +345,13 @@ holding the line between "it works" and "they have it," designing status checks 
    and how to tell a blocker you can engineer around from one you have to escalate.
 10. **"My status check couldn't tell 'failed' from 'still running.'"** Silence is not success —
     a short lesson in designing monitors that fail loudly.
+11. **"I threw away the entire UI framework and 63 tests passed without a single edit."** A purity
+    rule written for testability turned out to be a rule about portability.
+12. **"My cleverest hack deleted itself."** The service worker that forged COOP/COEP headers was
+    the proudest fix of the project — and picking a different storage primitive made all fifty
+    lines unnecessary.
+13. **"Three of the four bugs failed silently."** Green tests, clean types, successful build,
+    blank page. Why "it compiles" and "it runs" are unrelated claims.
 
 ---
 

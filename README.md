@@ -1,8 +1,9 @@
 # LifeQuest
 
-Offline-first, single-user gamified task tracker (React Native + Expo SDK 57, TypeScript strict,
-expo-sqlite, Zustand, Expo Router). Real-life tasks earn XP, levels, streaks, and badges. No
-backend, no accounts, no network calls — everything lives in on-device SQLite.
+Offline-first, single-user gamified task tracker — an installable PWA (React + Vite, TypeScript
+strict, SQLite-on-WebAssembly, Zustand, React Router, Tailwind v4, Magic UI). Real-life tasks earn
+XP, levels, streaks, and badges. No backend, no accounts, no network calls — everything lives in
+on-device SQLite.
 
 ## For any AI agent / developer working on this repo — read in this order
 
@@ -11,7 +12,7 @@ backend, no accounts, no network calls — everything lives in on-device SQLite.
 | [CLAUDE.md](CLAUDE.md) | **The product spec** — features, schema, XP/streak rules, design system, phased roadmap. The source of truth for *what* to build | Always, first |
 | [CONVENTIONS.md](CONVENTIONS.md) | **Hard rules** for changing code — layer boundaries, migration rules, date handling, verification workflow. Violating these corrupts data or breaks the build | Always, before editing anything |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is actually structured — layers, data flow of every mutation, file map | Before touching more than one file |
-| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (version pins, metro stub, npm flags). Do not "fix" these | Before touching package.json, configs, or tests |
+| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (Vite base path, worker-only OPFS, font subsets). Do not "fix" these | Before touching package.json, configs, or tests |
 | [DECISIONS.md](DECISIONS.md) | Why things are the way they are. Do not undo these without the owner asking | Before proposing refactors |
 | [PLAN.md](PLAN.md) | Milestone plan (M0–M9 + Phases 2–3) | When starting new feature work |
 | [PROGRESS.md](PROGRESS.md) | What's done, what's next, known debt. **Update it when you complete a milestone** | Start and end of every work session |
@@ -20,27 +21,26 @@ backend, no accounts, no network calls — everything lives in on-device SQLite.
 ## Quick start
 
 ```bash
-npm install                  # .npmrc already sets legacy-peer-deps (required — see GOTCHAS.md)
-npx expo start               # dev server; scan QR with Expo Go on the same Wi-Fi
-npm run web                  # run in a browser (see "Running it as a web app" below)
-npm test                     # jest (engine unit tests — must stay green)
+npm install
+npm run dev                  # Vite dev server at http://localhost:5173/lifequest/
+npm test                     # vitest (engine unit tests — must stay green)
 npm run typecheck            # tsc --noEmit (must stay clean)
 npm run lint                 # eslint
-npx expo export --platform android   # bundle check; delete dist/ afterwards
+npm run build:web            # production build into dist/ (also writes .nojekyll + 404.html)
+npm run serve:web            # serve the built dist/ locally
 ```
 
-## Running it as a web app (the primary way to use LifeQuest)
+Note the **`/lifequest/`** path in dev — `base` in `vite.config.ts` is unconditional so dev,
+preview, and production agree on asset URLs, the router basename, and the service-worker scope.
+Serving from `/` in dev hid a blank-page failure once (GOTCHAS 22).
 
-The same codebase runs in a mobile browser and installs to the phone's home screen like a native
-app — no APK, no sideloading, no laptop in the loop. SQLite still holds all the data; on web it runs
-as WebAssembly against the browser's private on-device filesystem (OPFS), so the app remains
-offline-first with zero network calls after first load.
+## How it runs
 
-```bash
-npm run web          # dev server, opens at http://localhost:8081/lifequest
-npm run build:web    # production build into dist/ (also writes .nojekyll + 404.html)
-npm run serve:web    # serve the built dist/ locally
-```
+The app installs to a phone's home screen like a native app — no APK, no sideloading, no laptop in
+the loop. SQLite holds all the data, compiled to WebAssembly and writing to the browser's private
+on-device filesystem (OPFS), so the app is offline-first with zero network calls after first load.
+SQLite runs in a dedicated worker (`src/db/sqlite.worker.ts`) because its `opfs-sahpool` VFS needs
+an API browsers only expose off the main thread.
 
 ### 👉 Live app: **https://gamedev1991.github.io/lifequest/**
 
@@ -61,35 +61,22 @@ requires a paid plan (Pro/Team) — on the free plan, either make the repo publi
 `dist/` somewhere else (Netlify/Cloudflare Pages, where `public/_headers` already supplies the
 required headers).
 
-If the site is ever hosted somewhere other than `/lifequest/`, change `expo.experiments.baseUrl` in
-`app.json` to match (`""` for a root domain).
+If the site is ever hosted somewhere other than `/lifequest/`, change `base` in `vite.config.ts` to
+match (`'/'` for a root domain).
 
-**Why there's a service worker** (`public/sw.js`): SQLite-on-WebAssembly needs `SharedArrayBuffer`,
-which browsers only grant a cross-origin-isolated page, which requires COOP/COEP response headers —
-and GitHub Pages can't set headers. The worker re-serves same-origin responses with those headers,
-and caches the app shell so it launches offline. Two consequences worth knowing: **the first visit
-reloads itself once** (that's the worker taking control — by design), and the app **cannot run over
-plain `http://`** or in a private window where service workers are blocked. See GOTCHAS.md 12–17.
-
-## Building the standalone APK (local, no Expo account)
-
-One-time machine setup is already done on the dev PC (JDK 17 via winget; Android SDK cmdline-tools
-at `%LOCALAPPDATA%\Android\Sdk`; `JAVA_HOME`/`ANDROID_HOME` set; licenses accepted). To build:
-
-```bash
-npx expo prebuild --platform android --no-install   # regenerates android/ (gitignored) if absent
-cd android; .\gradlew.bat assembleRelease           # APK: android/app/build/outputs/apk/release/app-release.apk
-```
-
-Sideload: copy the APK to the phone, tap it, allow "install unknown apps" for the file manager.
-Note: the default build packages all 4 CPU ABIs (~93MB). For a phone-only build add
-`-PreactNativeArchitectures=arm64-v8a` to the gradlew command (~30MB).
+**Why there's a service worker** (`public/sw.js`): purely to cache the app shell so an installed
+PWA keeps launching with the radio off (§2). It used to also forge COOP/COEP headers, because the
+old expo-sqlite web build reached its worker over `SharedArrayBuffer` and needed cross-origin
+isolation that GitHub Pages cannot provide. The `opfs-sahpool` VFS needs no isolation, so that
+workaround is gone — don't reintroduce the headers. The app still **cannot run over plain
+`http://`** or in a private window, because OPFS itself requires a secure context.
 
 ## Status
 
 Phase 1 (MVP) is code-complete: all three task types, complete/undo/skip/snooze/archive, XP +
 character level, calendar view, dark glow-panel UI. Phase 1.5 added the stats dashboard, the
-simplified capture form, and categories with split XP. Phase 1.6 made it an installable web app —
-now the primary way it's used — and it is **live at
-https://gamedev1991.github.io/lifequest/** as of 2026-07-30. Phase 2 (streaks, badges, skill
-dashboard) is next. See [PROGRESS.md](PROGRESS.md).
+simplified capture form, and categories with split XP. Phase 1.6 made it an installable web app,
+**live at https://gamedev1991.github.io/lifequest/** since 2026-07-30. Phase 1.7 (2026-08-02)
+removed Expo entirely and rebuilt the UI on React + Vite + Tailwind + Magic UI; Android/iOS are no
+longer targets (DECISIONS D20). Phase 2 (streaks, badges, skill dashboard) is next. See
+[PROGRESS.md](PROGRESS.md).

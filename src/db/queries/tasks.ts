@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import { getDb } from '../client';
 import type { Difficulty, Schedule, Task, TaskStatus, TaskType } from '../../types';
 
@@ -47,7 +46,7 @@ export interface NewTask {
 
 export async function createTask(input: NewTask, now: Date): Promise<Task> {
   const db = await getDb();
-  const id = Crypto.randomUUID();
+  const id = crypto.randomUUID();
   const iso = now.toISOString();
   await db.runAsync(
     `INSERT INTO tasks (id, title, notes, type, difficulty, schedule_json, target_count,

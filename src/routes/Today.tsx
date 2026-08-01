@@ -1,16 +1,15 @@
 import { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { FastCapture } from '../../src/components/FastCapture';
-import { TaskCard } from '../../src/components/TaskCard';
-import { TodayHeader } from '../../src/components/TodayHeader';
-import { useTaskStore } from '../../src/store/useTaskStore';
-import { useSkillStore } from '../../src/store/useSkillStore';
-import { isScheduledDay } from '../../src/engine/time';
-import { colors, spacing } from '../../src/constants/theme';
-import type { Task } from '../../src/types';
-import type { NewTask } from '../../src/db/queries/tasks';
+import { BlurFade } from '../components/ui/blur-fade';
+import { FastCapture } from '../components/FastCapture';
+import { TaskCard } from '../components/TaskCard';
+import { TodayHeader } from '../components/TodayHeader';
+import { useTaskStore } from '../store/useTaskStore';
+import { useSkillStore } from '../store/useSkillStore';
+import { isScheduledDay } from '../engine/time';
+import type { Task } from '../types';
+import type { NewTask } from '../db/queries/tasks';
 
-export default function TodayScreen() {
+export default function Today() {
   const tasks = useTaskStore((s) => s.tasks);
   const completionsToday = useTaskStore((s) => s.completionsToday);
   const skipsToday = useTaskStore((s) => s.skipsToday);
@@ -21,8 +20,8 @@ export default function TodayScreen() {
   const unskipTask = useTaskStore((s) => s.unskipTask);
   const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
 
-  // Card spine color = the first category tagged on the task (§5). Subscribe to raw
-  // state and derive here — a selector building this map would loop (see useSkillStore).
+  // Card spine color = the first category tagged on the task (§5). Subscribe to raw state
+  // and derive here — a selector building this map would loop (see useSkillStore).
   const skills = useSkillStore((s) => s.skills);
   const taskSkills = useSkillStore((s) => s.taskSkills);
   const spineFor = useMemo(() => {
@@ -47,8 +46,8 @@ export default function TodayScreen() {
       ? (progressByTask.get(t.id) ?? 0) >= t.targetCount
       : completedTaskIds.has(t.id);
 
-  // Today view (§4, Phase 1.5): schedule is orthogonal — any task with a
-  // schedule appears only on its scheduled days; unscheduled tasks always show
+  // Today view (§4, Phase 1.5): schedule is orthogonal — any task with a schedule appears
+  // only on its scheduled days; unscheduled tasks always show.
   const today = new Date();
   const todayTasks = tasks.filter((t) => !t.schedule || isScheduledDay(t.schedule, today));
 
@@ -68,48 +67,36 @@ export default function TodayScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <FlatList
-        data={todayTasks}
-        keyExtractor={(t) => t.id}
-        ListHeaderComponent={
-          <>
-            <TodayHeader
-              doneCount={todayTasks.filter(isDone).length}
-              totalCount={todayTasks.length}
-            />
-            <FastCapture onAdd={onAdd} />
-          </>
-        }
-        renderItem={({ item }) => (
-          <TaskCard
-            task={item}
-            spineColor={spineFor(item.id)}
-            done={isDone(item)}
-            hasCompletionToday={completedTaskIds.has(item.id)}
-            skippedToday={skippedTaskIds.has(item.id)}
-            progressToday={progressByTask.get(item.id) ?? 0}
-            onComplete={onComplete}
-            onUndo={onUndo}
-            onSkip={onSkip}
-            onUnskip={onUnskip}
-            onLogProgress={onLogProgress}
-          />
-        )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No quests for today — add your first one above.</Text>
-        }
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-      />
-    </View>
+    <div className="pb-8">
+      <TodayHeader doneCount={todayTasks.filter(isDone).length} totalCount={todayTasks.length} />
+      <FastCapture onAdd={onAdd} />
+
+      {todayTasks.length === 0 ? (
+        <p className="mt-8 text-center text-muted">No quests for today — add your first one above.</p>
+      ) : (
+        <ul className="flex flex-col gap-2 px-4">
+          {todayTasks.map((task, i) => (
+            <li key={task.id}>
+              {/* Staggered entry, capped so a long list doesn't crawl in for two seconds. */}
+              <BlurFade delay={Math.min(i, 8) * 0.04}>
+                <TaskCard
+                  task={task}
+                  spineColor={spineFor(task.id)}
+                  done={isDone(task)}
+                  hasCompletionToday={completedTaskIds.has(task.id)}
+                  skippedToday={skippedTaskIds.has(task.id)}
+                  progressToday={progressByTask.get(task.id) ?? 0}
+                  onComplete={onComplete}
+                  onUndo={onUndo}
+                  onSkip={onSkip}
+                  onUnskip={onUnskip}
+                  onLogProgress={onLogProgress}
+                />
+              </BlurFade>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  empty: {
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-});

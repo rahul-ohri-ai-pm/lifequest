@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import { getDb } from '../client';
 import type { Skip } from '../../types';
 
@@ -15,7 +14,7 @@ function rowToSkip(r: SkipRow): Skip {
 
 export async function addSkip(taskId: string, dayKey: string, now: Date): Promise<Skip> {
   const db = await getDb();
-  const id = Crypto.randomUUID();
+  const id = crypto.randomUUID();
   await db.runAsync(
     'INSERT INTO skips (id, task_id, day, created_at) VALUES (?, ?, ?, ?)',
     id,

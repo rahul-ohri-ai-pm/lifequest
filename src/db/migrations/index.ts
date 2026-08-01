@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SqlDatabase } from '../sqlite';
 import { withWriteTransaction } from '../transaction';
 import * as m0001 from './0001_init';
 import * as m0002 from './0002_skills';
@@ -6,13 +6,13 @@ import * as m0002 from './0002_skills';
 interface Migration {
   version: number;
   name: string;
-  up(db: SQLiteDatabase): Promise<void>;
+  up(db: SqlDatabase): Promise<void>;
 }
 
 // Forward-only, applied in order (§4). Register new migrations here.
 const MIGRATIONS: Migration[] = [m0001, m0002];
 
-export async function runMigrations(db: SQLiteDatabase): Promise<void> {
+export async function runMigrations(db: SqlDatabase): Promise<void> {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version    INTEGER PRIMARY KEY,

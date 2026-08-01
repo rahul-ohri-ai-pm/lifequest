@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+/* §5 typography: the display face is loaded self-hosted, never a CDN (the app makes zero
+   network calls after first load). Two weights only — and the *latin* subset files
+   specifically: the unqualified `400.css`/`700.css` entrypoints also pull Rajdhani's
+   devanagari subset, which added ~262 KB of font files the UI never renders. */
+@import '@fontsource/rajdhani/latin-400.css';
+@import '@fontsource/rajdhani/latin-700.css';
+
+/* §5 Design & Visual Style — dark-only "system window" aesthetic. These are the single
+   source of truth for color; components use the Tailwind utilities they generate
+   (bg-panel, text-accent, border-edge, …) rather than raw hex. */
+@theme {
+  --color-bg: #0a0e17;
+  --color-bg-alt: #0d1220;
+  --color-panel: #131a2b;
+  --color-panel-raised: #182238;
+  --color-edge: #22304d;
+  --color-accent: #4c8dff;
+  --color-accent-2: #8b5cf6;
+  --color-fg: #e6e9f2;
+  --color-muted: #8a93a8;
+  --color-danger: #e5484d;
+
+  /* Rarity/difficulty ramp (Trivial→Epic), echoing RPG item-rarity coloring */
+  --color-trivial: #6b7280;
+  --color-easy: #34d399;
+  --color-medium: #4c8dff;
+  --color-hard: #8b5cf6;
+  --color-epic: #f5b942;
+
+  --font-display: 'Rajdhani', ui-sans-serif, system-ui, sans-serif;
+
+  /* Driven by ShineBorder's inline --duration */
+  --animate-shine: shine var(--duration) infinite linear;
+}
+
+@keyframes shine {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-fg antialiased;
+    /* §5: system font for body text, display face reserved for headers/numbers */
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+  }
+
+  /* The glow-panel look wants a visible focus ring that isn't the browser default. */
+  :focus-visible {
+    @apply outline-accent outline-2 outline-offset-2;
+  }
+}
+
+@utility panel-glow {
+  /* The 1px glow border treatment from §5. `glow-strong` is deliberately separate and
+     reserved for the one element that is *the* moment — if everything glows equally,
+     nothing reads as emphasised. */
+  box-shadow: 0 0 6px rgb(76 141 255 / 0.35);
+}
+
+@utility panel-glow-strong {
+  box-shadow: 0 0 12px rgb(76 141 255 / 0.9);
+}

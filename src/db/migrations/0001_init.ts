@@ -1,9 +1,9 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SqlDatabase } from '../sqlite';
 
 export const version = 1;
 export const name = 'init';
 
-export async function up(db: SQLiteDatabase): Promise<void> {
+export async function up(db: SqlDatabase): Promise<void> {
   await db.execAsync(`
     CREATE TABLE tasks (
       id            TEXT PRIMARY KEY,

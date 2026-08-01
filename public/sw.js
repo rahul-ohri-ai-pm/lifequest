@@ -1,41 +1,22 @@
-/* LifeQuest service worker — two jobs, zero dependencies.
+/* LifeQuest service worker — one job now, zero dependencies.
  *
- * 1. Cross-origin isolation. expo-sqlite's web build runs SQLite as WebAssembly in
- *    a worker and talks to it over SharedArrayBuffer, which browsers only hand to a
- *    cross-origin-isolated page. That needs COOP/COEP *response headers* on the
- *    document, and static hosts like GitHub Pages cannot set headers. A service
- *    worker can: it re-serves same-origin responses with the headers attached.
- *    (Hosts that can set headers are covered by public/_headers too — that path is
- *    strictly better when available; this one is what makes GitHub Pages work.)
+ * Offline. The app is offline-first by spec (§2) and makes zero network calls, so once
+ * the shell is cached it must keep launching with the radio off.
  *
- * 2. Offline. The app is offline-first by spec (§2) and makes zero network calls,
- *    so once the shell is cached it must keep launching with the radio off.
+ * It used to have a second job: re-serving same-origin responses with COOP/COEP headers
+ * attached, because the old expo-sqlite web build reached its worker over
+ * SharedArrayBuffer and browsers only hand that to a cross-origin-isolated page — which
+ * needs response headers a static host like GitHub Pages cannot set. The web rewrite
+ * switched to SQLite's opfs-sahpool VFS, which uses synchronous access handles instead of
+ * SharedArrayBuffer and needs no isolation at all, so that whole workaround is gone. Do
+ * not add the headers back "just in case": COEP require-corp would start rejecting any
+ * cross-origin subresource the app ever legitimately needs.
  *
- * Deliberately hand-rolled rather than pulling in Workbox/coi-serviceworker: ~70
- * lines beats a dependency, per the lightweight rule (§3).
+ * Deliberately hand-rolled rather than pulling in Workbox: ~50 lines beats a dependency,
+ * per the lightweight rule (§3).
  */
 
-const CACHE = 'lifequest-shell-v1';
-
-// Expo documents COEP `credentialless`, but `require-corp` is chosen here deliberately:
-// it has the wider browser support (notably older Safari/iOS, where credentialless landed
-// much later), and its stricter rule — every subresource must be same-origin or explicitly
-// opt in — costs this app nothing, because §5 already forbids CDNs and remote assets. If a
-// cross-origin resource is ever added, it needs CORP/CORS headers or this must change.
-function withIsolationHeaders(response) {
-  // Opaque (status 0) and bodyless (204/304) responses can't be rebuilt.
-  if (!response || response.status === 0 || response.status === 204 || response.status === 304) {
-    return response;
-  }
-  const headers = new Headers(response.headers);
-  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
+const CACHE = 'lifequest-shell-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -66,7 +47,7 @@ async function handle(event, request) {
   // Navigations go network-first so a redeploy is picked up on the next launch.
   if (!isNavigation) {
     const hit = await cache.match(request);
-    if (hit) return withIsolationHeaders(hit);
+    if (hit) return hit;
   }
 
   try {
@@ -74,18 +55,18 @@ async function handle(event, request) {
     if (response.ok && response.type === 'basic') {
       event.waitUntil(cache.put(request, response.clone()));
     }
-    // SPA export ("single"): unknown paths 404 on a static host, so serve the shell
-    // and let the router resolve the route client-side.
+    // SPA build: unknown paths 404 on a static host, so serve the shell and let the
+    // router resolve the route client-side.
     if (isNavigation && !response.ok) {
       const shell = await cache.match(self.registration.scope);
-      if (shell) return withIsolationHeaders(shell);
+      if (shell) return shell;
     }
-    return withIsolationHeaders(response);
+    return response;
   } catch {
     const fallback = isNavigation
-      ? (await cache.match(request)) ?? (await cache.match(self.registration.scope))
+      ? ((await cache.match(request)) ?? (await cache.match(self.registration.scope)))
       : await cache.match(request);
-    if (fallback) return withIsolationHeaders(fallback);
+    if (fallback) return fallback;
     throw new Error('LifeQuest is offline and this resource is not cached.');
   }
 }

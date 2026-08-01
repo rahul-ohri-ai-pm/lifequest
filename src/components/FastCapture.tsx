@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BorderBeam } from './ui/border-beam';
 import { SkillChips } from './SkillChips';
 import { orderSkillsByMru, useSkillStore } from '../store/useSkillStore';
-import { colors, glow, radii, spacing } from '../constants/theme';
+import { cn } from '../lib/utils';
+import { colors } from '../constants/theme';
 import type { Schedule, TaskType } from '../types';
 import type { NewTask } from '../db/queries/tasks';
 
@@ -12,9 +13,9 @@ interface Props {
   onAdd(input: NewTask, skillIds: string[]): void;
 }
 
-// §2 fast capture, reworked per Phase 1.5: title is the only required field.
-// Schedule and target are orthogonal toggles — no type picker, no difficulty
-// picker (difficulty defaults to medium; editable on the task's edit screen).
+// §2 fast capture, reworked per Phase 1.5: title is the only required field. Schedule and
+// target are orthogonal toggles — no type picker, no difficulty picker (difficulty
+// defaults to medium; editable on the task's edit screen).
 export function FastCapture({ onAdd }: Props) {
   const [title, setTitle] = useState('');
   const [repeat, setRepeat] = useState(false);
@@ -22,8 +23,8 @@ export function FastCapture({ onAdd }: Props) {
   const [counted, setCounted] = useState(false);
   const [target, setTarget] = useState('');
   const [skillIds, setSkillIds] = useState<string[]>([]);
-  // Subscribe to the raw state and derive here: a selector returning a fresh array on every
-  // render loops forever under zustand v5 (see orderSkillsByMru).
+  // Subscribe to the raw state and derive here: a selector returning a fresh array on
+  // every render loops forever under zustand v5 (see orderSkillsByMru).
   const skills = useSkillStore((s) => s.skills);
   const mru = useSkillStore((s) => s.mru);
   const orderedSkills = useMemo(() => orderSkillsByMru(skills, mru), [skills, mru]);
@@ -53,114 +54,86 @@ export function FastCapture({ onAdd }: Props) {
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
+  const input =
+    'w-full border-b border-accent bg-transparent py-2 text-base text-fg outline-none placeholder:text-muted';
+  const toggle = 'rounded border px-2 py-1 text-[13px] transition-colors';
+
   return (
-    <View style={styles.panel}>
-      <TextInput
-        style={styles.input}
+    <form
+      className="relative m-4 flex flex-col gap-2 overflow-hidden rounded-lg bg-panel p-4 panel-glow"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <BorderBeam size={90} duration={9} colorFrom={colors.accent} colorTo={colors.accentSecondary} />
+
+      <input
+        className={input}
         placeholder="New quest…"
-        placeholderTextColor={colors.textSecondary}
         value={title}
-        onChangeText={setTitle}
-        onSubmitEditing={submit}
-        returnKeyType="done"
+        onChange={(e) => setTitle(e.target.value)}
+        aria-label="Quest title"
       />
       <SkillChips skills={orderedSkills} selected={skillIds} onToggle={toggleSkill} />
-      <View style={styles.row}>
-        <Pressable
-          onPress={() => setRepeat(!repeat)}
-          style={[styles.toggle, repeat && styles.toggleActive]}
+
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          aria-pressed={repeat}
+          onClick={() => setRepeat(!repeat)}
+          className={cn(toggle, repeat ? 'border-accent bg-accent/15 text-accent' : 'border-muted text-muted')}
         >
-          <Text style={[styles.toggleText, repeat && styles.toggleTextActive]}>↻ Repeat</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setCounted(!counted)}
-          style={[styles.toggle, counted && styles.toggleActive]}
+          ↻ Repeat
+        </button>
+        <button
+          type="button"
+          aria-pressed={counted}
+          onClick={() => setCounted(!counted)}
+          className={cn(toggle, counted ? 'border-accent bg-accent/15 text-accent' : 'border-muted text-muted')}
         >
-          <Text style={[styles.toggleText, counted && styles.toggleTextActive]}># Count to target</Text>
-        </Pressable>
-      </View>
+          # Count to target
+        </button>
+      </div>
+
       {repeat && (
-        <View style={styles.row}>
+        <div className="flex flex-wrap items-center gap-1">
           {WEEKDAYS.map((label, d) => (
-            <Pressable
+            <button
               key={d}
-              onPress={() => toggleDay(d)}
-              style={[styles.dayChip, days.includes(d) && styles.dayChipActive]}
+              type="button"
+              aria-pressed={days.includes(d)}
+              aria-label={`Toggle day ${d}`}
+              onClick={() => toggleDay(d)}
+              className={cn(
+                'grid size-7 place-items-center rounded-full border text-xs transition-colors',
+                days.includes(d) ? 'border-accent bg-accent text-bg' : 'border-muted text-muted'
+              )}
             >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: days.includes(d) ? colors.background : colors.textSecondary },
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
+              {label}
+            </button>
           ))}
-          {!days.length && <Text style={styles.dayHint}>every day</Text>}
-        </View>
+          {!days.length && <span className="ml-1 text-xs text-muted">every day</span>}
+        </div>
       )}
+
       {counted && (
-        <TextInput
-          style={styles.input}
+        <input
+          className={input}
           placeholder="Daily target (e.g. 8)"
-          placeholderTextColor={colors.textSecondary}
           value={target}
-          onChangeText={setTarget}
-          keyboardType="number-pad"
+          inputMode="numeric"
+          onChange={(e) => setTarget(e.target.value)}
+          aria-label="Daily target"
         />
       )}
-      <Pressable style={styles.addButton} onPress={submit}>
-        <Text style={styles.addButtonText}>+ Add</Text>
-      </Pressable>
-    </View>
+
+      <button
+        type="submit"
+        className="rounded bg-accent py-2 text-[15px] font-bold text-bg transition-opacity hover:opacity-90"
+      >
+        + Add
+      </button>
+    </form>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: colors.panel,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    margin: spacing.md,
-    gap: spacing.sm,
-    ...glow,
-  },
-  input: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.accent,
-    paddingVertical: spacing.sm,
-  },
-  row: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', alignItems: 'center' },
-  toggle: {
-    borderWidth: 1,
-    borderColor: colors.textSecondary,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  toggleActive: { borderColor: colors.accent, backgroundColor: colors.accent + '22' },
-  toggleText: { fontSize: 13, color: colors.textSecondary },
-  toggleTextActive: { color: colors.accent },
-  chipText: { fontSize: 12, textTransform: 'capitalize' },
-  dayChip: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.textSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayChipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  dayHint: { color: colors.textSecondary, fontSize: 12, marginLeft: spacing.xs },
-  addButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.sm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  addButtonText: { color: colors.background, fontWeight: 'bold', fontSize: 15 },
-});

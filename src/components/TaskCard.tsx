@@ -1,14 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import {
-  colors,
-  difficultyColors,
-  glowStrong,
-  radii,
-  spacing,
-  text,
-  type,
-} from '../constants/theme';
+import { useNavigate } from 'react-router-dom';
+import { BorderBeam } from './ui/border-beam';
+import { CheckIcon } from './icons';
+import { cn } from '../lib/utils';
+import { colors, difficultyTextClass } from '../constants/theme';
 import { xpForDifficulty } from '../engine/xp';
 import type { Task } from '../types';
 
@@ -27,9 +21,9 @@ interface Props {
 }
 
 // Metadata is shown only when it says something. Every task defaults to medium
-// (Phase 1.5 hid the difficulty picker), so printing "Medium · 25 XP" on every
-// row was five identical lines of noise — difficulty now appears only when the
-// user actually changed it, and then it carries its rarity color (§5).
+// (Phase 1.5 hid the difficulty picker), so printing "Medium · 25 XP" on every row was
+// five identical lines of noise — difficulty appears only when the user actually changed
+// it, and then it carries its rarity color (§5).
 function metaParts(task: Task, progressToday: number, skippedToday: boolean): string[] {
   const parts: string[] = [];
   if (task.type === 'counted' && task.targetCount != null) {
@@ -39,6 +33,9 @@ function metaParts(task: Task, progressToday: number, skippedToday: boolean): st
   if (skippedToday) parts.push('skipped');
   return parts;
 }
+
+const ghost =
+  'rounded border border-edge px-2 py-1 text-xs text-muted transition-colors hover:border-muted hover:text-fg';
 
 export function TaskCard({
   task,
@@ -53,153 +50,109 @@ export function TaskCard({
   onUnskip,
   onLogProgress,
 }: Props) {
-  const router = useRouter();
-  const rarity = difficultyColors[task.difficulty];
+  const navigate = useNavigate();
   const inactive = done || skippedToday;
   const isCounted = task.type === 'counted' && task.targetCount != null;
   const parts = metaParts(task, progressToday, skippedToday);
   const xp = xpForDifficulty(task.difficulty);
 
   return (
-    <View style={[styles.card, done && styles.cardDone, skippedToday && styles.cardSkipped]}>
-      {/* Category spine — the one place color varies, so a list of quests is
-          scannable at a glance without turning every card into a rainbow. */}
-      <View style={[styles.spine, { backgroundColor: spineColor ?? colors.panelBorder }]} />
+    <div
+      className={cn(
+        'relative flex min-h-[68px] items-stretch overflow-hidden rounded-lg border bg-panel',
+        done ? 'border-accent bg-panel-raised' : 'border-edge',
+        skippedToday && 'opacity-50'
+      )}
+    >
+      {/* Completing something is the point of the app, so the card marks it loudly —
+          this is the one place a beam is justified (§5: if everything glows, nothing does). */}
+      {done && <BorderBeam size={70} duration={5} colorFrom={colors.accent} colorTo={colors.accentSecondary} />}
 
-      <Pressable style={styles.info} onPress={() => router.push(`/task/${task.id}`)}>
-        <Text style={[styles.title, inactive && styles.doneText]} numberOfLines={2}>
+      {/* Category spine — the one place color varies, so a list of quests is scannable
+          at a glance without turning every card into a rainbow. */}
+      <div className="w-[3px] shrink-0" style={{ backgroundColor: spineColor ?? colors.panelBorder }} />
+
+      <button
+        type="button"
+        onClick={() => void navigate(`/task/${task.id}`)}
+        className="flex min-w-0 flex-1 flex-col justify-center py-2 pl-4 text-left"
+      >
+        <span className={cn('line-clamp-2 text-[17px] text-fg', inactive && 'text-muted line-through')}>
           {task.title}
-        </Text>
-        <View style={styles.metaRow}>
-          <Text style={[styles.xp, task.difficulty !== 'medium' && { color: rarity }]}>
-            {xp} XP
-          </Text>
-          {parts.map((p) => (
-            <Text key={p} style={styles.meta}>
-              · {p}
-            </Text>
-          ))}
-        </View>
-      </Pressable>
-
-      <View style={styles.actions}>
-        {/* Secondary verbs are real buttons, not underlined text that reads as a
-            broken link. They stay quiet until the row needs them. */}
-        {hasCompletionToday && (
-          <Pressable
-            style={styles.ghostButton}
-            onPress={() => onUndo(task)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Undo ${task.title}`}
+        </span>
+        <span className="mt-[3px] flex items-center gap-1">
+          <span
+            className={cn(
+              'font-display text-xs tracking-wide',
+              task.difficulty === 'medium' ? 'text-muted' : difficultyTextClass[task.difficulty]
+            )}
           >
-            <Text style={styles.ghostText}>Undo</Text>
-          </Pressable>
+            {xp} XP
+          </span>
+          {parts.map((p) => (
+            <span key={p} className="text-xs capitalize text-muted">
+              · {p}
+            </span>
+          ))}
+        </span>
+      </button>
+
+      <div className="flex items-center gap-1 px-4">
+        {/* Secondary verbs are real buttons, not underlined text that reads as a broken
+            link. They stay quiet until the row needs them. */}
+        {hasCompletionToday && (
+          <button type="button" className={ghost} onClick={() => onUndo(task)} aria-label={`Undo ${task.title}`}>
+            Undo
+          </button>
         )}
         {/* §4 Skip: offered only for habits on their scheduled days */}
         {task.type === 'habit' && !done && !skippedToday && (
-          <Pressable
-            style={styles.ghostButton}
-            onPress={() => onSkip(task)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Skip ${task.title}`}
-          >
-            <Text style={styles.ghostText}>Skip</Text>
-          </Pressable>
+          <button type="button" className={ghost} onClick={() => onSkip(task)} aria-label={`Skip ${task.title}`}>
+            Skip
+          </button>
         )}
         {skippedToday && (
-          <Pressable
-            style={styles.ghostButton}
-            onPress={() => onUnskip(task)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Undo skip ${task.title}`}
+          <button
+            type="button"
+            className={ghost}
+            onClick={() => onUnskip(task)}
+            aria-label={`Undo skip ${task.title}`}
           >
-            <Text style={styles.ghostText}>Undo skip</Text>
-          </Pressable>
+            Undo skip
+          </button>
         )}
 
+        {/* The primary action: a 40px target that fills and glows when it lands. */}
         {!skippedToday && isCounted && (
-          <Pressable
-            style={[styles.check, styles.checkWide, done && styles.checkDone]}
-            onPress={() => onLogProgress(task)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={`Log progress on ${task.title}`}
+          <button
+            type="button"
+            onClick={() => onLogProgress(task)}
+            aria-label={`Log progress on ${task.title}`}
+            className={cn(
+              'grid h-10 w-12 shrink-0 place-items-center rounded-xl border-2 border-accent font-display text-sm transition-all',
+              done ? 'bg-accent text-bg panel-glow-strong' : 'text-accent hover:bg-accent/15'
+            )}
           >
-            <Text style={[styles.checkLabel, done && styles.checkLabelDone]}>
-              {done ? '✓' : '+1'}
-            </Text>
-          </Pressable>
+            {done ? <CheckIcon /> : '+1'}
+          </button>
         )}
         {!skippedToday && !isCounted && (
-          <Pressable
-            style={[styles.check, done && styles.checkDone]}
-            onPress={() => onComplete(task)}
+          <button
+            type="button"
+            onClick={() => onComplete(task)}
             disabled={done}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityState={{ checked: done }}
-            accessibilityLabel={`Complete ${task.title}`}
+            aria-label={`Complete ${task.title}`}
+            aria-checked={done}
+            role="checkbox"
+            className={cn(
+              'grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-accent transition-all',
+              done ? 'bg-accent text-bg panel-glow-strong' : 'text-accent hover:bg-accent/15'
+            )}
           >
-            <Text style={[styles.checkLabel, done && styles.checkLabelDone]}>{done ? '✓' : ''}</Text>
-          </Pressable>
+            {done && <CheckIcon />}
+          </button>
         )}
-      </View>
-    </View>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    borderRadius: radii.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
-    minHeight: 68,
-  },
-  // Completing something is the point of the app, so the card marks it loudly.
-  cardDone: { borderColor: colors.accent, backgroundColor: colors.panelRaised },
-  cardSkipped: { opacity: 0.5 },
-  spine: { width: 3 },
-  info: { flex: 1, justifyContent: 'center', paddingVertical: spacing.sm, paddingLeft: spacing.md },
-  title: { ...text.cardTitle, fontSize: 17 },
-  doneText: { textDecorationLine: 'line-through', color: colors.textSecondary },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  xp: { fontFamily: type.display, fontSize: 12, letterSpacing: 0.5, color: colors.textSecondary },
-  meta: { ...text.meta, textTransform: 'capitalize' },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  ghostButton: {
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.panelBorder,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-  },
-  ghostText: { fontSize: 12, color: colors.textSecondary },
-  // The primary action: a 40pt target that fills and glows when it lands.
-  check: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkWide: { width: 48, borderRadius: 12 },
-  checkDone: { backgroundColor: colors.accent, ...glowStrong },
-  checkLabel: { fontFamily: type.display, fontSize: 14, color: colors.accent },
-  checkLabelDone: { color: colors.background },
-});

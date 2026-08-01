@@ -6,7 +6,7 @@ and ask the owner instead of improvising.
 
 ## Layer boundaries (violations are the #1 way to mess this project up)
 
-1. **`src/engine/` stays pure.** No React, React Native, Expo, or DB imports. No `Date.now()`,
+1. **`src/engine/` stays pure.** No React, DOM, browser, or DB imports. No `Date.now()`,
    no `new Date()` with no args, no I/O — current time is always passed in as an argument. Every
    engine function gets unit tests in `src/engine/__tests__/` in the same change.
 2. **Game math lives ONLY in the engine.** Never compute XP, levels, streak transitions, badge or
@@ -52,26 +52,34 @@ and ask the owner instead of improvising.
 ## Dependencies & UI
 
 13. **Adding a dependency is a last resort.** The lightweight constraint (CLAUDE.md §3) is
-    first-class: no Lottie, no icon fonts, no calendar/date-picker libs, no ORM, no UI kits.
-    If truly needed, use `npx expo install <pkg>` (SDK-pinned version) and note it in
-    PROGRESS.md's debt section.
-14. **Colors/spacing/radii come from `src/constants/theme.ts` tokens only.** Dark theme only.
-    Icons are inline SVG components in `src/components/icons.tsx`.
+    first-class: no Lottie, no icon fonts, no calendar/date-picker libs, no ORM, no component
+    kits beyond the vendored Magic UI primitives. `motion` is the one animation dependency and
+    nothing else may join it. If a package is truly needed, check its gzipped size first and note
+    it in PROGRESS.md's debt section.
+14. **Colors come from the `@theme` tokens in `src/index.css`** — reach them through Tailwind
+    classes (`bg-panel`, `text-accent`, `border-edge`). `src/constants/theme.ts` holds the same
+    palette as *values*, for SVG props and data-driven inline styles only; keep the two in sync.
+    Dark theme only. Icons are inline SVG components in `src/components/icons.tsx`.
+14b. **Magic UI components in `src/components/ui/` stay close to upstream.** They were vendored
+    from the registry (what `npx shadcn add` does). Customise the components that *use* them;
+    edit a vendored file only when upstream genuinely doesn't support the need, and say so in a
+    comment at the top — a future re-pull should be a diff, not a merge.
 15. TypeScript strict; no `any` (use `unknown` + narrowing). Functional components + hooks only.
 
 ## Workflow — before every commit
 
 16. Run, in order, and all must pass:
     ```bash
-    npm test              # 48+ engine tests
+    npm test              # 63+ engine tests
     npm run typecheck     # tsc --noEmit
+    npm run lint          # eslint
     npm run build:web     # the shipped channel — catches route/import/bundle errors
-    npx expo export --platform android   # keeps the native build honest too
     ```
-    Delete `dist/` after the export check (it's gitignored, but don't leave it around).
-    Web-affecting changes (anything in `src/db/`, stores, or `app/_layout.tsx`) deserve a real
-    browser pass as well — the browser catches render loops and platform gaps that neither the
-    unit tests nor the bundler will (that's how GOTCHAS 12–13 were found).
+    Then **actually load it in a browser**. Changes to `src/db/`, the stores, or `src/App.tsx`
+    especially: the browser catches render loops, blank-page boots, and worker failures that
+    neither the unit tests nor the bundler will — that is how GOTCHAS 12–13 and 22–24 were all
+    found. A green build is not evidence the app starts. Check the build output too: a font or
+    asset regression is only visible in the emitted `dist/assets/` list (GOTCHAS 25).
 17. Commit per milestone/feature with a descriptive message; push to `origin main`
     (https://github.com/gamedev1991/lifequest). Update [PROGRESS.md](PROGRESS.md) when a
     milestone completes or new debt is created.
@@ -79,4 +87,4 @@ and ask the owner instead of improvising.
     Single-user repo with no review gate, so a branch adds a merge step and buys nothing. The
     safety net is rule 16 (a commit must be green before it's pushed), not branch isolation.
     Pushing to `main` publishes: it triggers the Pages deploy, so a bad commit reaches the phone.
-18. Never commit: `dist/`, `node_modules/`, `.expo/`, or edits to shipped migrations.
+18. Never commit: `dist/`, `node_modules/`, or edits to shipped migrations.

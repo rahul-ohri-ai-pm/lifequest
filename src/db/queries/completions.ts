@@ -1,8 +1,7 @@
-import * as Crypto from 'expo-crypto';
 import { getDb } from '../client';
 import { runSerializedRead, withWriteTransaction } from '../transaction';
 import { levelForTotalXp, splitSkillXp } from '../../engine/xp';
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SqlDatabase } from '../sqlite';
 import { rowToCharacter } from './character';
 import type { Character, Completion } from '../../types';
 
@@ -36,7 +35,7 @@ interface CharacterRow {
 // Serialized so that on web (single shared connection) it can't read between another
 // writer's completion INSERT and its character UPDATE and report a phantom violation.
 async function assertXpInvariant(): Promise<void> {
-  if (!__DEV__) return;
+  if (!import.meta.env.DEV) return;
   const db = await getDb();
   const { sum, char } = await runSerializedRead(async () => ({
     sum: await db.getFirstAsync<{ s: number | null }>(
@@ -62,7 +61,7 @@ export interface CompletionResult {
 // Runs inside the caller's exclusive transaction. `sign` is +1 (award) or -1 (undo).
 // Undo uses the task's tags at undo time — undo is a same-day action, so tag
 // drift between log and undo is accepted (see DECISIONS.md D13).
-async function applySkillXp(txn: SQLiteDatabase, taskId: string, xpAwarded: number, sign: 1 | -1): Promise<void> {
+async function applySkillXp(txn: SqlDatabase, taskId: string, xpAwarded: number, sign: 1 | -1): Promise<void> {
   if (xpAwarded === 0) return;
   const tags = await txn.getAllAsync<{ skill_id: string }>(
     'SELECT skill_id FROM task_skills WHERE task_id = ?',
@@ -95,7 +94,7 @@ export async function logCompletion(
   now: Date
 ): Promise<CompletionResult> {
   const db = await getDb();
-  const id = Crypto.randomUUID();
+  const id = crypto.randomUUID();
   const iso = now.toISOString();
   let completion: Completion | undefined;
   let character: Character | undefined;

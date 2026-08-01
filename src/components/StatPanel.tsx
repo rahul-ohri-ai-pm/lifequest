@@ -1,15 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, glow, radii, spacing } from '../constants/theme';
+import type { ReactNode } from 'react';
+import { ShineBorder } from './ui/shine-border';
+import { colors, text } from '../constants/theme';
 
-// Generic glow-panel building blocks for the stats screen. BarList takes
-// {label, value, color}[] so per-category data can slot in later unchanged.
+// Generic glow-panel building blocks (§5). BarList takes {label, value, color}[] so
+// per-category data slots in unchanged.
 
-export function StatPanel({ title, children }: { title: string; children: React.ReactNode }) {
+export function StatPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{title}</Text>
+    <section className="relative mx-4 mb-4 overflow-hidden rounded-lg bg-panel p-4 panel-glow">
+      <ShineBorder shineColor={[colors.accent, colors.accentSecondary]} duration={18} />
+      <h2 className={`${text.panelLabel} mb-2`}>{title}</h2>
       {children}
-    </View>
+    </section>
   );
 }
 
@@ -21,79 +23,39 @@ export interface BarListItem {
 }
 
 export function BarList({ items, emptyText }: { items: BarListItem[]; emptyText: string }) {
-  if (!items.length) return <Text style={styles.empty}>{emptyText}</Text>;
+  if (!items.length) return <p className="text-[13px] text-muted">{emptyText}</p>;
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
-    <View style={{ gap: spacing.sm }}>
+    <div className="flex flex-col gap-2">
       {items.map((item, i) => (
-        <View key={i}>
-          <View style={styles.barLabelRow}>
-            <Text style={styles.barLabel} numberOfLines={1}>
-              {item.label}
-            </Text>
-            <Text style={[styles.barValue, { color: item.color }]}>
+        <div key={i}>
+          <div className="mb-0.5 flex justify-between gap-2">
+            <span className="truncate text-[13px] text-fg">{item.label}</span>
+            <span className="shrink-0 text-[13px] font-bold" style={{ color: item.color }}>
               {item.detail ?? item.value}
-            </Text>
-          </View>
-          <View style={styles.barTrack}>
-            <View
-              style={[styles.barFill, { width: `${(item.value / max) * 100}%`, backgroundColor: item.color }]}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-bg">
+            <div
+              className="h-full rounded-full transition-[width] duration-500"
+              style={{ width: `${(item.value / max) * 100}%`, backgroundColor: item.color }}
             />
-          </View>
-        </View>
+          </div>
+        </div>
       ))}
-    </View>
+    </div>
   );
 }
 
-export function TileRow({ tiles }: { tiles: { value: string; label: string }[] }) {
+export function TileRow({ tiles }: { tiles: { value: ReactNode; label: string }[] }) {
   return (
-    <View style={styles.tileRow}>
+    <div className="flex gap-2">
       {tiles.map((t, i) => (
-        <View key={i} style={styles.tile}>
-          <Text style={styles.tileValue}>{t.value}</Text>
-          <Text style={styles.tileLabel}>{t.label}</Text>
-        </View>
+        <div key={i} className="flex-1 rounded bg-bg py-2 text-center">
+          <div className="font-display text-2xl text-accent">{t.value}</div>
+          <div className="mt-0.5 text-[11px] text-muted">{t.label}</div>
+        </div>
       ))}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: colors.panel,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    ...glow,
-  },
-  panelTitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-  },
-  empty: { color: colors.textSecondary, fontSize: 13 },
-  barLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-  barLabel: { color: colors.textPrimary, fontSize: 13, flex: 1, marginRight: spacing.sm },
-  barValue: { fontSize: 13, fontWeight: 'bold' },
-  barTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.background,
-    overflow: 'hidden',
-  },
-  barFill: { height: '100%', borderRadius: 3 },
-  tileRow: { flexDirection: 'row', gap: spacing.sm },
-  tile: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: radii.sm,
-  },
-  tileValue: { color: colors.accent, fontSize: 22, fontWeight: 'bold' },
-  tileLabel: { color: colors.textSecondary, fontSize: 11, marginTop: 2, textAlign: 'center' },
-});

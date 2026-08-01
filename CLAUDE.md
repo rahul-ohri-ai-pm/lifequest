@@ -33,21 +33,31 @@ but that feature is explicitly out of scope until the user asks for it.
 
 ## 3. Tech Stack
 
-- **React Native + Expo (managed workflow)**, TypeScript strict mode
-- **Targets: Android/iOS *and* web** (amended 2026-07-29). The web build is an installable PWA and is
-  now the primary way the app is used — the same `app/`, `src/engine/`, and `src/db/` code, with
-  SQLite running as WebAssembly against the browser's on-device OPFS storage. This does not soften
-  §2: after first load there are still zero network calls, zero accounts, and no server holding any
-  data. Platform differences are confined to `src/db/` (see `src/db/transaction.ts`) — never to
-  `src/engine/`
-- **expo-sqlite** for persistence, with a small hand-rolled numbered-migration system (no ORM —
-  the schema is 6-8 tables, not worth the codegen overhead)
+- **React + Vite**, TypeScript strict mode
+- **Target: web only** (amended 2026-08-02). The app is an installable PWA and that is the only
+  platform. It began as React Native + Expo targeting Android/iOS *and* web; Expo was removed
+  entirely so the UI could be built directly on the DOM with Tailwind and Magic UI components,
+  which are React-web-only. Android/iOS are no longer targets — see DECISIONS.md D14. This does
+  not soften §2: after first load there are still zero network calls, zero accounts, and no server
+  holding any data
+- **`@sqlite.org/sqlite-wasm`** for persistence — SQLite compiled to WebAssembly, storing to the
+  browser's on-device OPFS, with a small hand-rolled numbered-migration system (no ORM — the
+  schema is 6-8 tables, not worth the codegen overhead). It runs in a dedicated worker
+  (`src/db/sqlite.worker.ts`) because its `opfs-sahpool` VFS needs `createSyncAccessHandle()`,
+  which browsers expose only off the main thread. Everything above `src/db/client.ts` is written
+  against the `SqlDatabase` interface in `src/db/sqlite.ts` and knows nothing about the driver
 - **Zustand** for app state, with SQLite as the source of truth (stores are a cache/projection of
   the DB, never the other way around — every mutation writes to SQLite first, then updates the
   store)
-- **Expo Router** for navigation
-- **expo-notifications** for local-only reminders (no push tokens, no remote sends)
-- **Jest + React Native Testing Library** for tests
+- **React Router** for navigation
+- **Tailwind CSS v4** for styling, with the §5 palette declared once as `@theme` tokens in
+  `src/index.css`. No `tailwind.config.js` — v4 configures from CSS
+- **Magic UI** components, vendored into `src/components/ui/` (the same thing `npx shadcn add`
+  does). They are kept close to upstream so a re-pull is a diff, not a merge — project-specific
+  changes belong in the components that *use* them. `motion` (framer-motion) is their animation
+  dependency and the app's
+- **Vitest** for tests. The engine is pure TypeScript, so the suite needs no DOM and no plugins
+  (see `vitest.config.ts` for why it is a separate file from `vite.config.ts`)
 
 **Hard rule**: all game-logic math (XP curves, streak transitions, badge conditions, goal
 progress) lives in `src/engine/` as pure TypeScript functions — no React imports, no DB calls, no
@@ -56,41 +66,50 @@ the math unit-testable without mounting a single screen.
 
 ### Performance / bundle-size discipline
 
-The app must stay extremely lightweight — small install size, fast cold start, smooth on low-end
-Android. This is a standing constraint on every dependency and every screen, not a one-time audit:
+The app must stay extremely lightweight — small download, fast cold start, smooth on a low-end
+phone. This is a standing constraint on every dependency and every screen, not a one-time audit:
 
 - No heavy animation libraries (no Lottie, no `three.js`/skia-heavy effects). All "gamified" motion
-  — level-up flashes, progress bar fills, badge unlocks — is built with `react-native-reanimated`
-  running on the UI thread, driving simple transforms/opacity/glow, not asset playback.
+  — level-up flashes, progress bar fills, badge unlocks — is built with `motion` driving simple
+  transforms/opacity/glow, not asset playback. `motion` is ~33 KB gzipped and is the one animation
+  dependency; it arrived with Magic UI and nothing else may join it.
 - No custom illustrated art assets (see §5 — vector/glow-panel art direction only). Icons are
   inline SVG components, not an icon-font package or a sprite sheet.
-- Before adding any new dependency, check its install size / RN support. Prefer zero-dependency or
+- Before adding any new dependency, check its bundle size. Prefer zero-dependency or
   already-included solutions over pulling in a new package for a small feature.
-- Screens that aren't part of the initial route (Stats, Badge Gallery, Goals, Settings) are
-  lazy-loaded through Expo Router's default per-route code splitting — don't force everything into
+- Routes that aren't the initial one (Calendar, Stats, Profile, Archived, task detail) are
+  `React.lazy`-loaded in `src/App.tsx` so each becomes its own chunk — don't collapse them into
   one eagerly-loaded bundle.
 - Fonts: at most one display font (for headers/numbers) plus the system font for body text — load
-  only the specific weights actually used, never a whole family (see §5).
+  only the specific weights actually used, never a whole family, and import the **subset-specific**
+  `@fontsource` entrypoint (`latin-400.css`, not `400.css`, which also drags in devanagari — see
+  GOTCHAS).
+- The SQLite wasm binary (~406 KB gzipped) is the single biggest asset and is irreducible; it is
+  also the entire persistence layer. Keep it out of the critical path — it loads in the worker, so
+  it must never be pulled into the main bundle.
 
 ## 4. Architecture
 
 ### Directory layout
 
 ```
-app/                          # Expo Router routes (screens only — no game logic)
-  (tabs)/
-    index.tsx                 # Today view — task list, fast capture
-    calendar.tsx               # month/agenda view of scheduled + due tasks (Phase 1)
-    stats.tsx                  # skill dashboard w/ date filters (Phase 2), full stats/heatmap (Phase 3)
-    profile.tsx                # character level, XP, skill breakdown
-    _layout.tsx
-  task/
-    [id].tsx                  # task detail / edit
-    new.tsx
-  _layout.tsx
-
+index.html                    # document shell (PWA metadata, pre-mount background paint)
+vite.config.ts                # base path, worker format, sqlite-wasm dep handling
+vitest.config.ts              # test config — separate on purpose, see the file
 src/
-  engine/                    # PURE TypeScript. No React, RN, or Expo imports. Fully unit-tested.
+  main.tsx                   # React root, router, service-worker registration
+  App.tsx                    # boot gate (open DB → migrate → hydrate), layout, tab bar, routes
+  index.css                  # Tailwind entry + §5 palette as @theme tokens + display font
+
+  routes/                    # one file per screen (screens only — no game logic)
+    Today.tsx                # Today view — task list, fast capture
+    Calendar.tsx             # month/agenda view of scheduled + due tasks (Phase 1)
+    Stats.tsx                # skill dashboard w/ date filters (Phase 2), full stats/heatmap (Phase 3)
+    Profile.tsx              # character level, XP, skill breakdown
+    Archived.tsx             # archived quests, restore
+    TaskDetail.tsx           # task detail / edit
+
+  engine/                    # PURE TypeScript. No React or DOM imports. Fully unit-tested.
     tuning.ts                # difficulty->XP table, level-curve constants (Phase 1)
     xp.ts                    # xpForDifficulty, xpRequiredForLevel, levelForTotalXp (Phase 1)
     stats.ts                 # pure aggregations over completion rows (Phase 1, grows in Phase 3)
@@ -100,7 +119,9 @@ src/
     __tests__/
 
   db/
-    client.ts                # expo-sqlite connection singleton
+    sqlite.ts                # the SqlDatabase interface everything above db/ is written against
+    client.ts                # owns the worker protocol; the only file that knows the driver
+    sqlite.worker.ts         # sqlite-wasm + opfs-sahpool, serialized request queue
     migrations/
       0001_init.ts
       index.ts                # migration runner (reads schema_migrations, applies pending, in order)
@@ -114,16 +135,20 @@ src/
     useCharacterStore.ts
 
   components/                # Presentational + light-stateful components
+    ui/                      # vendored Magic UI primitives — kept close to upstream
+  lib/
+    utils.ts                 # cn() — the shadcn/Magic UI class-merge helper
   types/
     index.ts                 # Task, Completion, Difficulty, Character, etc.
   constants/
-    theme.ts                 # colors, glow tokens, spacing, radii (§5 Design & Visual Style)
-    fonts.ts                 # display + body font refs (one family each, specific weights only)
+    theme.ts                 # color *values* for SVG/inline use; classes live in index.css
 
-assets/
-  fonts/                     # single display font (e.g. Orbitron/Rajdhani), 1-2 weight files only
-app.json
-babel.config.js
+public/                      # copied verbatim into dist/
+  sw.js                      # offline shell cache (§2)
+  manifest.webmanifest       # PWA install metadata
+  icon-*.png
+scripts/
+  finalize-web-export.mjs    # .nojekyll + 404.html for GitHub Pages
 tsconfig.json
 package.json
 CLAUDE.md
@@ -160,8 +185,8 @@ Two views onto tasks, both reading the same `tasks`/`completions` tables:
 
 - Files live in `src/db/migrations/`, named `NNNN_description.ts` (4-digit, zero-padded,
   monotonically increasing — e.g. `0001_init.ts`, `0002_skills_and_streaks.ts`).
-- Each file exports a single `up(db: SQLiteDatabase): void` (or async, matching the expo-sqlite
-  API in use). No `down()` — migrations are **forward-only**. For a single-user local app, the
+- Each file exports a single `up(db: SqlDatabase): Promise<void>`. No `down()` — migrations are
+  **forward-only**. For a single-user local app, the
   recovery path for a bad migration is the JSON export/import (Phase 3), not schema rollback.
 - A `schema_migrations(version INTEGER PRIMARY KEY, name TEXT, applied_at TEXT)` table tracks what
   has been applied. On app start, the runner in `db/migrations/index.ts` applies every migration
@@ -310,8 +335,12 @@ there's no growing image/asset budget as the app grows.
   face — e.g. Orbitron or Rajdhani; load only Regular + Bold, nothing else), system font
   (San Francisco / Roboto) for body text and everything read at length. Never bundle a full font
   family for one weight used once.
-- **Motion**: glow pulses, XP-bar fills, and number count-ups via `react-native-reanimated` on the
-  UI thread — no Lottie, no bundled video/gif. Keep effects short (~200-400ms) and skippable.
+- **Motion**: glow pulses, XP-bar fills, and number count-ups via `motion` and CSS transitions —
+  no Lottie, no bundled video/gif. Keep effects short (~200-400ms) and skippable. The Magic UI
+  primitives in `src/components/ui/` are the vocabulary: `BorderBeam` for the one element that is
+  *the* moment, `NumberTicker` for XP count-ups, `BlurFade` for list entry, `ShineBorder` for
+  panel edges, `DotPattern` for the ambient background. If everything glows equally, nothing
+  reads as emphasised — that is a design rule, not a performance one.
 - **Iconography**: a small set of inline SVG icons (skills, difficulty tiers, badge locked/unlocked
   state), styled with the same glow/stroke treatment as panels — not a third-party icon-font
   library pulling in glyphs you'll never use.
@@ -403,7 +432,7 @@ Leveling up (character or skill) triggers a celebration animation (Phase 3 polis
 
 - TypeScript strict mode, no `any` (use `unknown` + narrowing if a type is genuinely unknown).
 - Functional components only, hooks for state/effects.
-- `src/engine/` — zero React/RN/Expo imports, 100% pure functions, 100% covered by unit tests
+- `src/engine/` — zero React/DOM/browser imports, 100% pure functions, 100% covered by unit tests
   under `src/engine/__tests__/`. If a function needs `Date.now()` or similar, pass it in as an
   argument rather than calling it internally — keeps the function deterministic and testable.
 - No game-logic math (XP, levels, streak transitions, badge/goal conditions) inside components or
@@ -414,18 +443,21 @@ Leveling up (character or skill) triggers a celebration animation (Phase 3 polis
 ## 9. Commands
 
 ```bash
-npx expo start              # run the dev server
-npm run web                 # run in a browser (dev)
-npm run build:web           # production web build into dist/ (deployed to GitHub Pages)
-npm test                    # jest — engine unit tests + component tests
+npm run dev                 # Vite dev server (also aliased as `npm run web`)
+npm run build:web           # production build into dist/ (deployed to GitHub Pages)
+npm run serve:web           # serve the built dist/ locally
+npm test                    # vitest — engine unit tests
 npm run typecheck           # tsc --noEmit
 npm run lint                # eslint
 ```
 
-**Resetting the dev database**: there is a dev-only "Reset Database" action in the Profile/Settings
-screen (visible only in `__DEV__`) that drops all tables and re-runs migrations from scratch. This
-is the supported way to reset local state during development — do not hand-delete the SQLite file
-unless you're also clearing the simulator/device app data.
+The dev server and the preview server both serve from **`/lifequest/`**, not `/` — `base` in
+`vite.config.ts` is deliberately unconditional so the router basename, service-worker scope, and
+asset URLs behave identically in dev, preview, and production.
+
+**Resetting the dev database**: `resetDb()` in `src/db/client.ts` drops all tables so migrations
+re-run from scratch. The data itself lives in OPFS under the `lifequest-pool` directory; clearing
+site data in DevTools (Application → Storage) is the other supported reset.
 
 ## 10. Phased Roadmap
 

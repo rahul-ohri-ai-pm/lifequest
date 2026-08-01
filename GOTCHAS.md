@@ -110,6 +110,68 @@ during initial development; undoing them re-breaks the project.
     branch. Gating on `fontsLoaded` alone would leave the app spinning forever on a device where
     the face fails to fetch; a missing display font makes LifeQuest plainer, not broken.
 
+## Web rewrite — React + Vite + Tailwind + Magic UI (2026-08-02)
+
+Several gotchas in the section above described the Expo web build and no longer apply; the
+cross-origin-isolation ones in particular are gone with the VFS change (DECISIONS D23).
+
+22. **`base` in `vite.config.ts` must not be conditional on the command.** With
+    `base: command === 'build' ? '/lifequest/' : '/'`, `vite preview` serves the site at `/` but
+    the *built* `index.html` asks for `/lifequest/assets/index-*.js`. Vite's SPA fallback answers
+    those with `index.html`, so the browser receives HTML where it expected a module — and fails
+    **silently**: no console error, no network error, just `#root` empty forever. If the app boots
+    to a blank page with a silent console, check what the script tag actually resolved to before
+    suspecting your code.
+
+23. **`opfs-sahpool` only works inside a Worker.** It fails with `Missing required OPFS APIs.` on
+    the main thread even though `navigator.storage.getDirectory` is present and
+    `window.isSecureContext` is true — the missing piece is
+    `FileSystemFileHandle.prototype.createSyncAccessHandle`, which browsers expose only off the
+    main thread. The error names the symptom, not the cause; don't go hunting for a headers or
+    origin problem.
+
+24. **Never seed a worker's request queue with `ready.then(…)`.** In `src/db/sqlite.worker.ts` the
+    chain starts as `Promise.resolve()` and `await ready` happens *inside* each request's `try`.
+    Seeding the chain with the init promise looks equivalent and is not: if the pool fails to
+    open, the seed is rejected, every later `.then` is skipped, no response is ever posted, and
+    the app hangs on its loading spinner with nothing in the console. Failure to open the database
+    has to arrive as a reply, not as silence. (This is why `client.ts` also puts the underlying
+    cause into the user-visible error string — on a phone there is no console to check.)
+
+25. **Import the subset-specific `@fontsource` entrypoint.** `@fontsource/rajdhani/400.css` pulls
+    every subset the family ships, which added ~262 KB of devanagari font files the UI never
+    renders. `@fontsource/rajdhani/latin-400.css` is the correct import. Check `dist/assets/`
+    after any font change — the waste is invisible until you read the build output.
+
+26. **Vitest bundles its own copy of Vite, so its config lives in `vitest.config.ts`.** Putting a
+    `test` block in `vite.config.ts` and importing `defineConfig` from `vitest/config` makes
+    `tsc` fail on the config file itself: vitest's Vite is rollup-based, the project's Vite 8 is
+    rolldown-based, and `Plugin` is structurally incompatible between them. Two files, no
+    workaround needed.
+
+27. **`vite preview` does not survive `dist/` being emptied.** `vite build` clears the output
+    directory, and a preview server started beforehand then answers with `ERR_FAILED` while
+    `curl` against the same URL still returns 200 (different connection handling). Restart
+    preview after every rebuild rather than debugging a phantom app failure.
+
+28. **OPFS data does not carry over from the old expo-sqlite build.** expo-sqlite's web build and
+    the sahpool VFS lay out OPFS completely differently — sahpool stores an opaque pool of files
+    under `.lifequest-pool`, not a readable `lifequest.db`. A device that used the old deployment
+    starts empty on the new one. There is no migration path short of the Phase 3 JSON
+    export/import, which is why that feature is the recovery story for anything like this.
+
+29. **Only one tab can hold the database, and `navigator.locks` is how we say so.** The
+    `opfs-sahpool` VFS takes exclusive sync access handles, so a second tab doesn't queue — it
+    fails, and if both load at once *both* can fail. `claimSingleInstance()` in
+    `src/db/client.ts` claims a Web Lock first purely so the message can name the real cause
+    instead of blaming private mode and HTTPS. **Watch the shape of that function**:
+    `navigator.locks.request()` resolves only after its callback's promise settles, so the
+    callback resolves an *outer* promise to let startup continue and then returns a
+    never-settling promise to keep holding the lock. Awaiting `request()` directly, with a
+    callback that holds forever, hangs startup forever — the app sits on its spinner having
+    successfully taken the lock. That bug was written and caught in the same session; it only
+    showed up with two tabs open.
+
 ## Agent session environment (Claude Code on the web)
 
 19. **`curl https://api.github.com/...` does not work — use the GitHub MCP tools.** The session
