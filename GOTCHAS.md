@@ -182,3 +182,22 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
     session once. Read CI state via `actions_list` / `actions_get` / `get_job_logs`, and never
     build a wait loop on top of raw `curl` to GitHub. Plain `curl` to the *published site*
     (`gamedev1991.github.io`) is fine — that's how the deploy was verified.
+
+## Design pass — system-window redesign (2026-08-02)
+
+20. **Tailwind v4 scans Markdown too, so editing the docs changes the shipped CSS.** Writing
+    `notch`, `text-glow` and `bg-panel` into DECISIONS.md/PROGRESS.md while documenting the
+    redesign harvested those strings as real utilities: `index.css` changed hash, and with it the
+    JS chunk hashes. Harmless in output (they're utilities the app already uses) but it means
+    **a docs-only commit can produce a different bundle**, so "I browser-tested this build" stops
+    being true the moment you write the doc entry and rebuild. Re-verify against the *final*
+    `dist/`, not the one you tested before writing docs — or confirm the deployed files hash-match
+    what you actually drove. That is why the deploy check here is a per-file `sha256` of every
+    live asset against `dist/`, not just an eyeball of the index hash.
+
+21. **Headless Chromium cannot reach the published site from an agent session; `curl` can.**
+    Outbound HTTPS goes through the session proxy, and Chromium's `CONNECT` through it comes back
+    `net::ERR_CONNECTION_RESET` even with `--proxy-server` set and the CA trusted (`curl` to the
+    same URL works, so the proxy itself is fine). Do not disable TLS verification to get around
+    it. The equivalent check that *does* work: hash every deployed file against `dist/`, then run
+    the browser harness against `vite preview` serving that same byte-identical `dist/`.
