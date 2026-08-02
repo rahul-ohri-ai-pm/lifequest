@@ -1,6 +1,5 @@
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
-import { BorderBeam } from './ui/border-beam';
 import { SystemPanel } from './system/SystemPanel';
 import { CheckIcon, CountedIcon, HabitIcon, TodoIcon } from './icons';
 import { cn } from '../lib/utils';
@@ -80,17 +79,15 @@ export function TaskCard({
   return (
     <SystemPanel
       // Every row is framed, as in the reference — the frame is what makes a list read as a
-      // quest log rather than as a to-do list. What a *completed* row gets on top is the
-      // bloom, the brackets and the beam, so "done" still stands out at a glance (§5).
+      // quest log rather than as a to-do list. A *completed* row adds the bloom and the corner
+      // brackets, which is enough to stand out at a glance. It used to add a BorderBeam too,
+      // but that is an infinite animation *per row*: ten cleared quests meant ten of them
+      // running forever, and §5 reserves the beam for the one element that is the moment.
       glow={done}
       brackets={done}
       className={cn('transition-opacity', skippedToday && 'opacity-50')}
       innerClassName="flex items-stretch overflow-hidden"
     >
-      {/* Completing something is the point of the app, so the row marks it loudly — this is
-          the one place a beam is justified (§5: if everything glows, nothing does). */}
-      {done && <BorderBeam size={70} duration={5} colorFrom={colors.accent} colorTo={colors.accentSecondary} />}
-
       {/* Category spine — the one place color varies, so a list of quests is scannable at a
           glance without turning every row into a rainbow. */}
       <div className="w-[3px] shrink-0" style={{ backgroundColor: tint }} />

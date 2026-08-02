@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { NavLink, Route, Routes, useLocation } from 'react-router';
-import { DotPattern } from './components/ui/dot-pattern';
 import { SystemHeading } from './components/system/SystemHeading';
 import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
@@ -73,31 +72,39 @@ function Spinner() {
   );
 }
 
-// Ambient depth, taken from the motion reference's layered parallax scenes. Two very large,
-// very soft radial washes drifting on different periods read as depth behind the panels
-// without a single image — and because they only ever animate `transform`, they stay off the
-// paint path on a low-end phone (§3). The dot grid sits on top as the near layer.
+// Ambient depth: two soft radial washes plus a dot grid, all painted once and then left
+// alone.
+//
+// This layer used to be the single most expensive thing in the app. `DotPattern glow`
+// animates *every dot individually* — at 22px spacing on a phone that is ~860 simultaneous
+// infinite animations, measured, which pushed median frame time to 55ms and tap-to-paint to
+// 152ms. The two drifting washes added two more infinite animations and two full-viewport
+// composited layers on top of that.
+//
+// So the grid is now a single CSS background instead of ~860 animated SVG nodes, and the
+// washes are static. The drift was a 42-second cycle nobody could perceive anyway; §3 makes
+// "smooth on a low-end phone" a first-class constraint, and an imperceptible animation is a
+// pure cost. The vendored DotPattern component is untouched (CONVENTIONS 14b) — this simply
+// no longer uses it here.
 function Ambience() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
       <div
-        className="animate-drift absolute -left-1/4 -top-1/3 size-[120vmax] rounded-full opacity-60"
-        style={{
-          background: 'radial-gradient(circle, rgb(76 141 255 / 0.16) 0%, transparent 62%)',
-        }}
+        className="absolute -left-1/4 -top-1/3 size-[120vmax] rounded-full opacity-60"
+        style={{ background: 'radial-gradient(circle, rgb(76 141 255 / 0.16) 0%, transparent 62%)' }}
       />
       <div
-        className="animate-drift-slow absolute -bottom-1/2 -right-1/3 size-[110vmax] rounded-full opacity-50"
-        style={{
-          background: 'radial-gradient(circle, rgb(139 92 246 / 0.16) 0%, transparent 62%)',
-        }}
+        className="absolute -bottom-1/2 -right-1/3 size-[110vmax] rounded-full opacity-50"
+        style={{ background: 'radial-gradient(circle, rgb(139 92 246 / 0.16) 0%, transparent 62%)' }}
       />
-      <DotPattern
-        width={22}
-        height={22}
-        cr={0.7}
-        glow
-        className="absolute inset-0 text-accent/15 [mask-image:radial-gradient(60vw_circle_at_50%_0%,#fff,transparent)]"
+      <div
+        className="absolute inset-0 opacity-15"
+        style={{
+          backgroundImage: 'radial-gradient(circle at center, var(--color-accent) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+          maskImage: 'radial-gradient(60vw circle at 50% 0%, #000, transparent)',
+          WebkitMaskImage: 'radial-gradient(60vw circle at 50% 0%, #000, transparent)',
+        }}
       />
     </div>
   );
@@ -143,7 +150,7 @@ export function App() {
       <LevelUpOverlay />
 
       <div className="relative mx-auto flex h-full w-full max-w-lg flex-col">
-        <header className="shrink-0 border-b border-edge bg-bg-alt/80 px-4 py-3 backdrop-blur-sm">
+        <header className="shrink-0 border-b border-edge bg-bg-alt px-4 py-3">
           {/* animateKey re-runs the blur-in per screen, so the title resolves like a system
               readout on every navigation rather than only on first mount. */}
           <SystemHeading as="h1" size="lg" animateKey={pathname}>
@@ -158,10 +165,13 @@ export function App() {
             <motion.div
               key={pathname}
               className="flex flex-1 flex-col"
-              initial={{ opacity: 0, scale: 0.985, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, scale: 1.01, filter: 'blur(4px)' }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              // Opacity + a hair of scale only. Animating `filter: blur()` across a
+              // full-screen element re-rasterizes the whole route on every frame — it was
+              // costing far more than the depth cue was worth on a phone.
+              initial={{ opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.01 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
             >
               <Suspense fallback={<Spinner />}>
                 <Routes location={location}>
@@ -178,7 +188,7 @@ export function App() {
           </AnimatePresence>
         </main>
 
-        <nav className="shrink-0 border-t border-edge bg-bg-alt/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
+        <nav className="shrink-0 border-t border-edge bg-bg-alt pb-[env(safe-area-inset-bottom)]">
           <ul className="flex">
             {TABS.map(({ to, label, Icon }) => (
               <li key={to} className="flex-1">

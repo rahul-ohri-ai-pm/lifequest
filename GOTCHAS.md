@@ -185,7 +185,7 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
 
 ## Design pass — system-window redesign (2026-08-02)
 
-20. **Tailwind v4 scans Markdown, so a docs-only commit can change the shipped CSS.** Confirmed by
+30. **Tailwind v4 scans Markdown, so a docs-only commit can change the shipped CSS.** Confirmed by
     experiment, not inferred: appending an unused colour utility (`bg-fuchsia-` + a shade — spelled
     apart here **on purpose**, see below) to PROGRESS.md and rebuilding puts that rule in
     `dist/assets/index-*.css`. The `.md` files are in the source-detection set exactly
@@ -208,9 +208,27 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
     `dist/`, and prove the deploy by hashing every live asset against it rather than eyeballing
     the index hash.
 
-21. **Headless Chromium cannot reach the published site from an agent session; `curl` can.**
+31. **Headless Chromium cannot reach the published site from an agent session; `curl` can.**
     Outbound HTTPS goes through the session proxy, and Chromium's `CONNECT` through it comes back
     `net::ERR_CONNECTION_RESET` even with `--proxy-server` set and the CA trusted (`curl` to the
     same URL works, so the proxy itself is fine). Do not disable TLS verification to get around
     it. The equivalent check that *does* work: hash every deployed file against `dist/`, then run
     the browser harness against `vite preview` serving that same byte-identical `dist/`.
+
+32. **`DotPattern` with `glow` animates every dot — never use it full-screen.** The prop wraps
+    each dot in its own `motion.circle` with an infinite opacity/scale keyframe. At 22px spacing
+    across a phone viewport that is **~860 simultaneous infinite animations** behind every screen,
+    which is what "touch response is slow" turned out to mean: measured at 4× CPU throttling,
+    median frame time 55ms, p90 116ms, tap-to-paint 152ms. Removing it took those to 16.5ms /
+    17.3ms / 30ms — a locked 60fps and a 5× faster tap.
+
+    The ambient grid is now a single CSS `radial-gradient` background in `App.tsx`'s `Ambience`
+    (one element, no animation, ~860 fewer DOM nodes). The vendored component is untouched — it is
+    fine at the small, decorative scale upstream intends. **Anything infinite that sits behind the
+    whole app is a standing tax on every interaction**, so check `document.getAnimations().length`
+    on Today before shipping ambient effects; on a healthy build it should be 0 at rest.
+
+33. **An infinite animation *per list row* multiplies.** `BorderBeam` was on every completed
+    quest card, so ten cleared quests meant ten forever-running beams. §5 already said the beam is
+    for "the one element that is *the* moment" — the performance rule and the design rule turned
+    out to be the same rule. Beams now survive only on the Profile hero and the level-up overlay.

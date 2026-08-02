@@ -71,6 +71,10 @@ export interface TaskPatch {
   title?: string;
   notes?: string | null;
   difficulty?: Difficulty;
+  // Editable because repeatability is editable (§4 "change any field"): toggling Repeat on a
+  // todo makes it a habit, and off makes it a todo again. Counted tasks keep their type — a
+  // schedule is orthogonal for them (Phase 1.5), so their toggle only moves `schedule`.
+  type?: TaskType;
   schedule?: Schedule | null;
   targetCount?: number | null;
   dueAt?: string | null;
@@ -84,10 +88,11 @@ export async function updateTask(id: string, patch: TaskPatch, now: Date): Promi
   const next = { ...current, ...patch };
   const schedule = patch.schedule !== undefined ? patch.schedule : current.schedule;
   await db.runAsync(
-    `UPDATE tasks SET title = ?, notes = ?, difficulty = ?, schedule_json = ?, target_count = ?,
+    `UPDATE tasks SET title = ?, notes = ?, type = ?, difficulty = ?, schedule_json = ?, target_count = ?,
        due_at = ?, reminder_at = ?, status = ?, updated_at = ? WHERE id = ?`,
     next.title,
     next.notes ?? null,
+    next.type,
     next.difficulty,
     schedule ? JSON.stringify(schedule) : null,
     next.targetCount ?? null,

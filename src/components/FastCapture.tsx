@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BorderBeam } from './ui/border-beam';
 import { SystemPanel } from './system/SystemPanel';
 import { SkillChips } from './SkillChips';
 import { orderSkillsByMru, useSkillStore } from '../store/useSkillStore';
 import { cn } from '../lib/utils';
-import { colors } from '../constants/theme';
 import type { Schedule, TaskType } from '../types';
 import type { NewTask } from '../db/queries/tasks';
 
@@ -76,8 +74,6 @@ export function FastCapture({ onAdd }: Props) {
       }}
     >
       <SystemPanel glow innerClassName="relative flex flex-col gap-2 overflow-hidden px-4 py-3">
-        <BorderBeam size={90} duration={9} colorFrom={colors.accent} colorTo={colors.accentSecondary} />
-
         <span className="font-display text-[11px] uppercase tracking-[0.24em] text-muted">New quest</span>
 
         <div className="flex items-center gap-2">

@@ -85,8 +85,8 @@ the full browser harness against `vite preview` serving those exact bytes. The r
 one-line `startValue` fix landed *after* the first harness pass, so the build that shipped was not
 the build originally tested. (Tailwind v4 does also scan Markdown — verified by probe — but only
 bites when the prose names a utility the app doesn't already use, which is why the docs commit
-itself built byte-identical. GOTCHAS 20.) Driving a browser at the live URL is not possible from an agent session — Chromium's
-CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 21).
+itself built byte-identical. GOTCHAS 30.) Driving a browser at the live URL is not possible from an agent session — Chromium's
+CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 31).
 
 ## Phase 1.10 (owner: "let's fix storage")
 
@@ -101,6 +101,13 @@ completions/day for a year is **425 KB of JSON, 47 KB gzipped**; ten years of he
 already ships*, so JSON stays the export format (as CLAUDE.md §10 planned). Revisit only past
 ~50 MB, where `JSON.stringify` over the whole DB starts to matter on a low-end phone. Also worth
 being clear: **JSON is the backup format, not the storage engine** — storage is SQLite in OPFS.
+
+## Phase 1.11 (owner feedback from real device use)
+
+| Milestone | Status | Notes |
+|---|---|---|
+| D4 — Repeatability is editable | ✅ Done (2026-08-02) | Owner: *"unable to edit repeatability of a quest."* Correct — the edit screen had **no Repeat toggle at all**, so a todo could never become repeating and a habit could never stop; the weekday row only appeared for tasks that were *already* habits, and only chose which days. A straight §4 violation ("Edit — change any field"). The toggle now mirrors the capture form, and the type follows from it (counted stays counted — a schedule is orthogonal there, Phase 1.5). Needed a data-layer fix too: `TaskPatch` had no `type` field and the `UPDATE` never wrote the column. Verified todo → habit → todo with a **page reload after each step**, so it proves the DB write rather than React state |
+| D5 — Touch latency | ✅ Done (2026-08-02) | Owner: *"touch response is slow."* Measured rather than guessed, at 4× CPU throttling on a phone viewport: **862 infinite animations running at rest**, because `DotPattern glow` animates every dot individually (GOTCHAS 32). Median frame 54.9ms, p90 116ms, tap-to-paint 152ms. Fixes: ambient grid became one CSS background instead of ~860 animated SVG nodes; the two drifting washes made static (a 42-second cycle nobody can perceive is pure cost); `BorderBeam` removed from every task card and from the capture panel (GOTCHAS 33); `backdrop-filter` dropped from header and nav; animated `blur()` removed from route transitions and headings. **Result: 862 → 0 animations at rest, median frame 16.5ms, tap-to-paint 30ms** — a locked 60fps and a 5× faster tap, with the design unchanged to the eye |
 
 ## Phase 2
 

@@ -42,8 +42,10 @@ export function SystemHeading({ children, className, as = 'h2', size = 'md', ani
   return (
     <Tag
       key={animateKey}
-      initial={{ opacity: 0, filter: 'blur(8px)', letterSpacing: '0.4em' }}
-      animate={{ opacity: 1, filter: 'blur(0px)', letterSpacing: tracking }}
+      // The letter-spacing tighten carries the effect on its own. The blur that used to ride
+      // along with it re-rasterized the text every frame, on every navigation.
+      initial={{ opacity: 0, letterSpacing: '0.4em' }}
+      animate={{ opacity: 1, letterSpacing: tracking }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
       className={cn('font-display uppercase text-fg text-glow', sizeClass, className)}
     >

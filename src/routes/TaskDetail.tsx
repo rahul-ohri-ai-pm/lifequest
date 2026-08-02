@@ -8,7 +8,7 @@ import { useSkillStore } from '../store/useSkillStore';
 import { addDays, dateFromDayKey, dayKeyFor } from '../engine/time';
 import { cn } from '../lib/utils';
 import { difficultyColors } from '../constants/theme';
-import type { Difficulty, Schedule } from '../types';
+import type { Difficulty, Schedule, TaskType } from '../types';
 
 const DIFFICULTIES: Difficulty[] = ['trivial', 'easy', 'medium', 'hard', 'epic'];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -29,6 +29,9 @@ export default function TaskDetail() {
   const [title, setTitle] = useState(task?.title ?? '');
   const [notes, setNotes] = useState(task?.notes ?? '');
   const [difficulty, setDifficulty] = useState<Difficulty>(task?.difficulty ?? 'easy');
+  // Repeatability is a real, editable field — a todo can become a habit and back again.
+  // Seeded from whether the task currently carries a schedule at all.
+  const [repeat, setRepeat] = useState(task?.schedule != null);
   const [days, setDays] = useState<number[]>(
     task?.schedule?.freq === 'custom' ? task.schedule.days : []
   );
@@ -49,19 +52,21 @@ export default function TaskDetail() {
   const canSave = title.trim().length > 0 && dueValid;
 
   const onSave = async () => {
-    // Habits always have a schedule (empty days = daily); counted tasks keep theirs
-    // editable if present (schedule is orthogonal, Phase 1.5); todos none.
-    const schedule: Schedule | null =
-      task.type === 'habit' || (task.type === 'counted' && task.schedule)
-        ? days.length
-          ? { freq: 'custom', days: [...days].sort() }
-          : { freq: 'daily' }
-        : null;
+    // Mirrors the capture form so the two screens cannot disagree: Repeat drives the
+    // schedule (empty days = daily), and the type follows from it. Counted stays counted —
+    // for those, a schedule is orthogonal (Phase 1.5) and the toggle only adds or clears it.
+    const schedule: Schedule | null = repeat
+      ? days.length
+        ? { freq: 'custom', days: [...days].sort() }
+        : { freq: 'daily' }
+      : null;
+    const nextType: TaskType = task.type === 'counted' ? 'counted' : repeat ? 'habit' : 'todo';
     await updateTask(
       task.id,
       {
         title: title.trim(),
         notes: notes.trim() || null,
+        type: nextType,
         difficulty,
         schedule,
         targetCount: task.type === 'counted' ? Math.max(1, parseInt(target, 10) || 1) : null,
@@ -147,7 +152,25 @@ export default function TaskDetail() {
           ))}
         </div>
 
-        {(task.type === 'habit' || (task.type === 'counted' && task.schedule != null)) && (
+        <span className={labelClass}>Repeats</span>
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            aria-pressed={repeat}
+            onClick={() => setRepeat(!repeat)}
+            className={cn(
+              'notch [--notch:5px] border px-2 py-1 font-display text-xs uppercase tracking-wider transition-colors',
+              repeat ? 'border-accent bg-accent/15 text-accent' : 'border-edge text-muted'
+            )}
+          >
+            ↻ Repeat
+          </button>
+          <span className="ml-1 text-xs text-muted">
+            {repeat ? 'shows on its scheduled days' : 'one-off quest'}
+          </span>
+        </div>
+
+        {repeat && (
           <>
             <span className={labelClass}>Scheduled days {days.length ? '' : '(every day)'}</span>
             <div className="flex flex-wrap items-center gap-1">
