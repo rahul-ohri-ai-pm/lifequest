@@ -10,6 +10,7 @@ import { runMigrations } from './db/migrations';
 import { useCharacterStore } from './store/useCharacterStore';
 import { useSkillStore } from './store/useSkillStore';
 import { useTaskStore } from './store/useTaskStore';
+import { useStreakStore } from './store/useStreakStore';
 import { gsap, useGsap } from './lib/gsap';
 import { cn } from './lib/utils';
 
@@ -58,6 +59,10 @@ function boot(): Promise<void> {
       useTaskStore.getState().hydrate(new Date()),
       useSkillStore.getState().hydrate(),
     ]);
+    // Streaks are derived from the completions log and need the task list, so they run after
+    // the others rather than alongside them. This is also where a break that happened while
+    // the app was closed gets discovered and recorded.
+    await useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
   })().catch((cause: unknown) => {
     bootPromise = null; // let a reload re-attempt rather than caching the failure forever
     throw cause;

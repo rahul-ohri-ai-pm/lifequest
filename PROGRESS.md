@@ -130,10 +130,26 @@ non-essential weight and recorded as such.
 
 | Item | Status |
 |---|---|
-| Streak engine (tested) | ⬜ — **next up**. Needs migration `0003` (`streaks`, `streak_resets`) + `src/engine/streaks.ts`. Highest-risk math since Phase 1: transitions interact with local-time day keys and DST (D4), with per-habit schedules, and with skip-vs-miss (§7 treats them the same for streaks but they are separate tables). The hard part is **retroactive detection** — miss three days without opening the app and the breaks must still be found and recorded on next launch, so the engine has to derive state from the completions log rather than from "what happened since last time I ran" |
+| Streak engine (tested) | ✅ Done (2026-08-02) — see Phase 2 notes below. Original scoping note kept for the record: Needs migration `0003` (`streaks`, `streak_resets`) + `src/engine/streaks.ts`. Highest-risk math since Phase 1: transitions interact with local-time day keys and DST (D4), with per-habit schedules, and with skip-vs-miss (§7 treats them the same for streaks but they are separate tables). The hard part is **retroactive detection** — miss three days without opening the app and the breaks must still be found and recorded on next launch, so the engine has to derive state from the completions log rather than from "what happened since last time I ran" |
 | Skills migration + tagging + split XP | ✅ Pulled forward into Phase 1.5 (N4 `919b5c7`): `0002` migration, 8 defaults, split XP in the completion transactions, MRU chips |
 | Badge engine + gallery | ⬜ |
 | Skill dashboard | ⬜ — partially covered by the N5 by-category panel; the full per-skill dashboard with day/week/month/all-time filters is still open |
+
+### Phase 2 progress
+
+| Milestone | Status | Notes |
+|---|---|---|
+| P1 — Streaks | ✅ Done (2026-08-02) | `src/engine/streaks.ts` + migration `0003` + `useStreakStore`. **Derived, not incremented** (DECISIONS D29): every launch walks from each habit's creation day to today and finds the breaks, so four days away is discovered on return rather than missed by a counter. §7 honoured exactly — no freezes, a skip breaks it like a miss (so the engine reads completions alone and never touches the skips table), and `longest` never decreases. **20 new engine tests, 83 total**, covering retroactive multi-day absence, custom Mon/Wed/Fri schedules, both DST transitions, and the rule that an unfinished *today* is pending rather than a break. UI: global day-streak with best/reset counts in the status HUD, per-habit streak on quest rows |
+
+**The upgrade path was tested, not assumed.** Migration `0003` was verified by building the
+previous commit, seeding a database through its UI, then loading the new build against the *same
+OPFS origin and browser profile* — i.e. the exact path the owner's phone takes. Quest and XP
+survived, streaks appeared, no exceptions. A fresh-install test would have proved nothing about
+this. (It also caught a stale `dist/` on the first attempt, which would have silently tested the
+old build against itself — GOTCHAS 30 again, third time this session.)
+
+**Still open in Phase 2**: badge engine + gallery, and the full per-skill dashboard with
+day/week/month/all-time filters.
 
 ## Phase 3
 

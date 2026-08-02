@@ -88,6 +88,19 @@ export function CountedIcon({ className, size = 18 }: IconProps) {
   );
 }
 
+// Streak mark. An angular flame rather than an emoji: §5 rules out icon fonts and the
+// aesthetic is code-drawn vector, so 🔥 would be the one un-themed thing on the screen.
+export function StreakIcon({ className, size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path
+        d="M12 2.5l4.2 5.4-1.6.6 3.4 5.2A6.8 6.8 0 1 1 6 13.7l3.4-5.2-1.6-.6L12 2.5z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>

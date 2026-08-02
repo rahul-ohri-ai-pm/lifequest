@@ -5,6 +5,7 @@ import { TaskCard, type Reward } from '../components/TaskCard';
 import { SectionBar } from '../components/system/SectionBar';
 import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
+import { useStreakStore } from '../store/useStreakStore';
 import { isScheduledDay } from '../engine/time';
 import { splitSkillXp, xpForDifficulty } from '../engine/xp';
 import { gsap, useGsap } from '../lib/gsap';
@@ -21,6 +22,7 @@ export default function Today() {
   const skipTask = useTaskStore((s) => s.skipTask);
   const unskipTask = useTaskStore((s) => s.unskipTask);
   const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
+  const streaksByTask = useStreakStore((s) => s.byTask);
   const root = useRef<HTMLDivElement | null>(null);
 
   // The quest row's reward tag and spine colour both come from the task's first tagged
@@ -95,15 +97,20 @@ export default function Today() {
     void addTask(input, new Date()).then((task) => {
       if (skillIds.length) return useSkillStore.getState().tagTask(task.id, skillIds);
     });
-  const onComplete = (task: Task) => void completeTask(task, new Date());
-  const onSkip = (task: Task) => void skipTask(task, new Date());
-  const onUnskip = (task: Task) => void unskipTask(task, new Date());
-  const onLogProgress = (task: Task) => void logCountedProgress(task, 1, new Date());
+  // Streak state is derived from the completions log, so every write to that log has to be
+  // followed by a re-derivation — otherwise the number on screen is stale until the next cold
+  // start. Cheap at this scale (one array pass over ~1.8k rows/year).
+  const resync = () => useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
+
+  const onComplete = (task: Task) => void completeTask(task, new Date()).then(resync);
+  const onSkip = (task: Task) => void skipTask(task, new Date()).then(resync);
+  const onUnskip = (task: Task) => void unskipTask(task, new Date()).then(resync);
+  const onLogProgress = (task: Task) => void logCountedProgress(task, 1, new Date()).then(resync);
 
   // §4 Undo: remove the most recent completion for today
   const onUndo = (task: Task) => {
     const latest = [...completionsToday].reverse().find((c) => c.taskId === task.id);
-    if (latest) void undoCompletion(latest.id, new Date());
+    if (latest) void undoCompletion(latest.id, new Date()).then(resync);
   };
 
   return (
@@ -128,6 +135,7 @@ export default function Today() {
               <TaskCard
                 task={task}
                 reward={rewardFor(task)}
+                streak={streaksByTask[task.id]?.state.current}
                 done={isDone(task)}
                 hasCompletionToday={completedTaskIds.has(task.id)}
                 skippedToday={skippedTaskIds.has(task.id)}

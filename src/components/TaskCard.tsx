@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { SystemPanel } from './system/SystemPanel';
-import { CheckIcon, CountedIcon, HabitIcon, TodoIcon } from './icons';
+import { CheckIcon, CountedIcon, HabitIcon, StreakIcon, TodoIcon } from './icons';
 import { cn } from '../lib/utils';
 import { gsap } from '../lib/gsap';
 import { flyXp, igniteRow, ripple } from '../lib/burst';
@@ -29,6 +29,8 @@ interface Props {
   skippedToday: boolean;
   progressToday: number; // counted tasks: today's cumulative sum
   reward: Reward;
+  /** Per-habit streak length; undefined for tasks that cannot have one (§7). */
+  streak?: number;
   onComplete(task: Task): void;
   onUndo(task: Task): void;
   onSkip(task: Task): void;
@@ -65,6 +67,7 @@ export function TaskCard({
   skippedToday,
   progressToday,
   reward,
+  streak,
   onComplete,
   onUndo,
   onSkip,
@@ -159,6 +162,16 @@ export function TaskCard({
                 {p}
               </span>
             ))}
+
+            {streak != null && streak > 0 && (
+              <span
+                className="flex items-center gap-1 font-display text-[10px] uppercase tracking-[0.14em] text-epic"
+                title={`${streak}-day streak`}
+              >
+                <StreakIcon size={12} />
+                {streak}
+              </span>
+            )}
 
             {hasCompletionToday && (
               <button type="button" className={ghost} onClick={() => onUndo(task)} aria-label={`Undo ${task.title}`}>

@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { SystemPanel } from './system/SystemPanel';
 import { Sigil } from './system/Sigil';
+import { StreakIcon } from './icons';
+import { useStreakStore } from '../store/useStreakStore';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { levelProgress } from '../engine/xp';
 import { gsap, useGsap } from '../lib/gsap';
@@ -23,6 +25,7 @@ interface Props {
 
 export function StatusHero({ doneCount, totalCount, xpToday }: Props) {
   const character = useCharacterStore((s) => s.character);
+  const global = useStreakStore((s) => s.global);
   const root = useRef<HTMLDivElement | null>(null);
   const prevFilled = useRef<number | null>(null);
 
@@ -86,6 +89,33 @@ export function StatusHero({ doneCount, totalCount, xpToday }: Props) {
             </span>
           </div>
         </div>
+
+        {/* The global active-day streak (§7). Shown even at zero, because "0 days" is the
+            honest state and hiding it would make a broken streak vanish rather than register.
+            `longest` is the record, which never decreases. */}
+        {global && (
+          <div className="flex items-center gap-2 border-t border-edge/60 pt-2.5">
+            <StreakIcon
+              className={global.state.current > 0 ? 'text-epic' : 'text-muted'}
+              size={16}
+            />
+            <span
+              className={`font-display text-lg leading-none tabular-nums ${
+                global.state.current > 0 ? 'text-epic' : 'text-muted'
+              }`}
+              style={global.state.current > 0 ? { textShadow: '0 0 10px rgb(245 185 66 / 0.5)' } : undefined}
+            >
+              {global.state.current}
+            </span>
+            <span className="font-display text-[10px] uppercase tracking-[0.2em] text-muted">
+              day streak
+            </span>
+            <span className="ml-auto font-display text-[10px] uppercase tracking-[0.16em] text-muted">
+              best {global.longest}
+              {global.resetCount > 0 && ` · ${global.resetCount} reset${global.resetCount > 1 ? 's' : ''}`}
+            </span>
+          </div>
+        )}
 
         {/* Segmented XP rail */}
         <div className="flex items-center gap-2">
