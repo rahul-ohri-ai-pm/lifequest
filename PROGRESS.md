@@ -120,9 +120,18 @@ CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 21).
   Chrome run over CDP; the deploy workflow gates on typecheck + tests + lint + build only. Now that
   web is the *only* channel, this is the most valuable piece of missing coverage
 - **The live site has not been confirmed on the owner's real phone yet.** All passes have been
-  headless Chromium; iOS Safari differs on OPFS quota, service-worker lifetime, and
-  home-screen-launch storage scoping. Not done until a quest survives a real close-and-reopen on
-  the device
+  headless Chromium. Not done until a quest survives a real close-and-reopen on the device.
+  **iOS Safari is explicitly not a concern** (owner confirmed 2026-08-02 that they own no iOS
+  device): the app is single-user by design (§2), so "browser support" collapses to one browser on
+  one phone. Don't spend effort on WebKit-specific OPFS quota, service-worker lifetime, or
+  home-screen storage-scoping differences — earlier notes here overstated that risk by reasoning
+  about a general audience this product does not have
+- **Nothing prevents the browser evicting the database.** OPFS is the only copy of every quest,
+  completion and XP row (§2: no cloud, deliberately). Clearing site data wipes it, and browsers may
+  evict origin storage under disk pressure. `navigator.storage.persist()` is a one-call mitigation
+  that has never been added, and installing the PWA to the home screen makes eviction much less
+  likely but is not a guarantee. This is the strongest argument for pulling the Phase 3 JSON
+  export/import forward — it is the only backup a no-server app can have
 - `sqlite3-worker1.js` and `sqlite3-opfs-async-proxy.js` (~243 KB combined) are emitted into
   `dist/` because the sqlite-wasm entrypoint references them, but the sahpool path never loads
   them. Dead weight on disk, not on the wire — not worth patching the package to strip
