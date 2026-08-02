@@ -16,6 +16,9 @@ type Tone = 'default' | 'alert' | 'quiet';
 
 interface Props {
   children: React.ReactNode;
+  /** The outer (framed) element, for effects that need a real box to animate — an element
+      with `display: contents` has none, so a wrapper inside would measure as zero. */
+  rootRef?: React.Ref<HTMLDivElement>;
   tone?: Tone;
   /** Corner brackets. On by default; off for dense rows where four more marks is noise. */
   brackets?: boolean;
@@ -70,9 +73,10 @@ export function SystemPanel({
   glow = false,
   className,
   innerClassName,
+  rootRef,
 }: Props) {
   return (
-    <div className={cn('notch p-px', toneEdge[tone], glow && toneGlow[tone], className)}>
+    <div ref={rootRef} className={cn('notch p-px', toneEdge[tone], glow && toneGlow[tone], className)}>
       <div className={cn('notch relative h-full bg-panel', toneBracket[tone], innerClassName)}>
         {brackets && <Brackets />}
         {children}

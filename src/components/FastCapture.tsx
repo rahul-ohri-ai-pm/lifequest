@@ -73,13 +73,17 @@ export function FastCapture({ onAdd }: Props) {
         submit();
       }}
     >
-      <SystemPanel glow innerClassName="relative flex flex-col gap-2 overflow-hidden px-4 py-3">
-        <span className="font-display text-[11px] uppercase tracking-[0.24em] text-muted">New quest</span>
-
+      <SystemPanel glow innerClassName="relative flex flex-col gap-2 overflow-hidden px-3 py-2.5">
         <div className="flex items-center gap-2">
+          {/* A prompt marker rather than a form label: capture should feel like issuing a
+              command to the system, and it saves a whole line of vertical space on the one
+              screen where the quest log wants every pixel. */}
+          <span aria-hidden className="font-display text-sm leading-none text-accent text-glow">
+            &rsaquo;
+          </span>
           <input
             className={input}
-            placeholder="What needs doing?"
+            placeholder="New quest…"
             value={title}
             onFocus={() => setExpanded(true)}
             onChange={(e) => setTitle(e.target.value)}
@@ -88,7 +92,7 @@ export function FastCapture({ onAdd }: Props) {
           <button
             type="submit"
             disabled={!title.trim()}
-            className="notch [--notch:6px] shrink-0 bg-accent px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.12em] text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
+            className="notch [--notch:6px] shrink-0 bg-accent px-3.5 py-1.5 font-display text-sm font-bold uppercase tracking-[0.12em] text-bg transition-opacity hover:opacity-90 disabled:opacity-30"
           >
             + Add
           </button>

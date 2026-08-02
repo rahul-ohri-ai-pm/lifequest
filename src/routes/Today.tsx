@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
-import { BlurFade } from '../components/ui/blur-fade';
+import { useMemo, useRef } from 'react';
 import { FastCapture } from '../components/FastCapture';
+import { StatusHero } from '../components/StatusHero';
 import { TaskCard, type Reward } from '../components/TaskCard';
-import { TodayHeader } from '../components/TodayHeader';
+import { SectionBar } from '../components/system/SectionBar';
 import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { isScheduledDay } from '../engine/time';
 import { splitSkillXp, xpForDifficulty } from '../engine/xp';
+import { gsap, useGsap } from '../lib/gsap';
 import type { Task } from '../types';
 import type { NewTask } from '../db/queries/tasks';
 
@@ -20,8 +21,9 @@ export default function Today() {
   const skipTask = useTaskStore((s) => s.skipTask);
   const unskipTask = useTaskStore((s) => s.unskipTask);
   const logCountedProgress = useTaskStore((s) => s.logCountedProgress);
+  const root = useRef<HTMLDivElement | null>(null);
 
-  // The quest row's reward tag and spine color both come from the task's first tagged
+  // The quest row's reward tag and spine colour both come from the task's first tagged
   // category (§5). Subscribe to raw state and derive here — a selector building this map
   // would loop (see useSkillStore).
   const skills = useSkillStore((s) => s.skills);
@@ -58,6 +60,36 @@ export default function Today() {
   // only on its scheduled days; unscheduled tasks always show.
   const today = new Date();
   const todayTasks = tasks.filter((t) => !t.schedule || isScheduledDay(t.schedule, today));
+  const doneCount = todayTasks.filter(isDone).length;
+  const remaining = todayTasks.length - doneCount;
+  const xpToday = completionsToday.reduce((sum, c) => sum + c.xpAwarded, 0);
+
+  // The quest log deals itself in: each row lifts and settles a beat after the one above.
+  // Keyed on the task ids so it replays when the set genuinely changes, not on every tick of
+  // progress — otherwise logging "+1" on a counted task would re-deal the whole list.
+  const listKey = todayTasks.map((t) => t.id).join(',');
+  useGsap(
+    root,
+    () => {
+      const rows = gsap.utils.toArray<HTMLElement>('[data-quest-row]');
+      if (!rows.length) return;
+      gsap.fromTo(
+        rows,
+        { opacity: 0, y: 22, scale: 0.97 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.5,
+          ease: 'power3.out',
+          // Capped so a long log doesn't crawl in for two seconds.
+          stagger: { each: 0.055, from: 'start', amount: Math.min(rows.length * 0.055, 0.5) },
+          clearProps: 'transform',
+        }
+      );
+    },
+    [listKey]
+  );
 
   const onAdd = (input: NewTask, skillIds: string[]) =>
     void addTask(input, new Date()).then((task) => {
@@ -75,32 +107,37 @@ export default function Today() {
   };
 
   return (
-    <div className="pb-8">
-      <TodayHeader doneCount={todayTasks.filter(isDone).length} totalCount={todayTasks.length} />
+    <div ref={root} className="pb-10">
+      <StatusHero doneCount={doneCount} totalCount={todayTasks.length} xpToday={xpToday} />
+
       <FastCapture onAdd={onAdd} />
 
+      <SectionBar
+        label="Quest log"
+        meta={todayTasks.length ? `${remaining} remaining` : undefined}
+      />
+
       {todayTasks.length === 0 ? (
-        <p className="mt-8 text-center text-muted">No quests for today — add your first one above.</p>
+        <p className="px-4 pt-6 text-center text-sm text-muted">
+          No quests today — add your first one above.
+        </p>
       ) : (
-        <ul className="flex flex-col gap-2 px-4">
-          {todayTasks.map((task, i) => (
-            <li key={task.id}>
-              {/* Staggered entry, capped so a long list doesn't crawl in for two seconds. */}
-              <BlurFade delay={Math.min(i, 8) * 0.04}>
-                <TaskCard
-                  task={task}
-                  reward={rewardFor(task)}
-                  done={isDone(task)}
-                  hasCompletionToday={completedTaskIds.has(task.id)}
-                  skippedToday={skippedTaskIds.has(task.id)}
-                  progressToday={progressByTask.get(task.id) ?? 0}
-                  onComplete={onComplete}
-                  onUndo={onUndo}
-                  onSkip={onSkip}
-                  onUnskip={onUnskip}
-                  onLogProgress={onLogProgress}
-                />
-              </BlurFade>
+        <ul className="flex flex-col gap-2 px-4 pt-1">
+          {todayTasks.map((task) => (
+            <li key={task.id} data-quest-row>
+              <TaskCard
+                task={task}
+                reward={rewardFor(task)}
+                done={isDone(task)}
+                hasCompletionToday={completedTaskIds.has(task.id)}
+                skippedToday={skippedTaskIds.has(task.id)}
+                progressToday={progressByTask.get(task.id) ?? 0}
+                onComplete={onComplete}
+                onUndo={onUndo}
+                onSkip={onSkip}
+                onUnskip={onUnskip}
+                onLogProgress={onLogProgress}
+              />
             </li>
           ))}
         </ul>

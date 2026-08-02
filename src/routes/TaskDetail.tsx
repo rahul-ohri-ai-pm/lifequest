@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { SkillChips } from '../components/SkillChips';
 import { SystemPanel } from '../components/system/SystemPanel';
@@ -7,6 +6,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { addDays, dateFromDayKey, dayKeyFor } from '../engine/time';
 import { cn } from '../lib/utils';
+import { gsap, useGsap } from '../lib/gsap';
 import { difficultyColors } from '../constants/theme';
 import type { Difficulty, Schedule, TaskType } from '../types';
 
@@ -22,6 +22,7 @@ const labelClass =
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const root = useRef<HTMLDivElement | null>(null);
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === id));
   const updateTask = useTaskStore((s) => s.updateTask);
   const archiveTask = useTaskStore((s) => s.archiveTask);
@@ -42,6 +43,28 @@ export default function TaskDetail() {
   const tagTask = useSkillStore((s) => s.tagTask);
   const [skillIds, setSkillIds] = useState<string[]>(
     useSkillStore.getState().taskSkills[id ?? ''] ?? []
+  );
+
+  useGsap(
+    root,
+    () => {
+      const panel = root.current?.firstElementChild;
+      if (!panel) return;
+      gsap
+        .timeline()
+        .fromTo(
+          panel,
+          { scaleY: 0.02, opacity: 0, transformOrigin: '50% 30%' },
+          { scaleY: 1, opacity: 1, duration: 0.42, ease: 'power4.out' }
+        )
+        .fromTo(
+          '[data-field]',
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.36, stagger: 0.045, ease: 'power2.out', clearProps: 'transform' },
+          '-=0.18'
+        );
+    },
+    [id]
   );
 
   if (!task) {
@@ -95,25 +118,19 @@ export default function TaskDetail() {
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
+
   return (
-    // The motion reference flips its cards on the Y axis to reveal what is on the back.
-    // Opening a quest is exactly that gesture: the row in the list turns over to show its
-    // detail. Perspective lives on the wrapper so the rotation reads as depth, not as a
-    // horizontal squash.
-    <motion.div
-      className="p-4 pb-8"
-      style={{ perspective: 1200 }}
-      initial={{ rotateY: -90, opacity: 0 }}
-      animate={{ rotateY: 0, opacity: 1 }}
-      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-    >
+    // The quest expands into its detail: the panel unfolds from a seam the width of the row
+    // that was tapped, then the fields deal themselves in. It reads as the same object opening
+    // rather than a new screen arriving.
+    <div ref={root} className="p-4 pb-8" style={{ perspective: 1200 }}>
       <SystemPanel glow innerClassName="flex flex-col gap-2 px-5 py-5">
-        <label className={labelClass}>
+        <label data-field className={labelClass}>
           Title
           <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
 
-        <label className={labelClass}>
+        <label data-field className={labelClass}>
           Notes
           <textarea
             className={cn(inputClass, 'min-h-[60px] resize-y')}
@@ -123,7 +140,7 @@ export default function TaskDetail() {
           />
         </label>
 
-        <span className={labelClass}>Categories (XP splits across them)</span>
+        <span data-field className={labelClass}>Categories (XP splits across them)</span>
         <SkillChips
           skills={skills}
           selected={skillIds}
@@ -132,7 +149,7 @@ export default function TaskDetail() {
           }
         />
 
-        <span className={labelClass}>Difficulty</span>
+        <span data-field className={labelClass}>Difficulty</span>
         <div className="flex flex-wrap items-center gap-1">
           {DIFFICULTIES.map((d) => (
             <button
@@ -152,7 +169,7 @@ export default function TaskDetail() {
           ))}
         </div>
 
-        <span className={labelClass}>Repeats</span>
+        <span data-field className={labelClass}>Repeats</span>
         <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
@@ -205,7 +222,7 @@ export default function TaskDetail() {
           </label>
         )}
 
-        <label className={labelClass}>
+        <label data-field className={labelClass}>
           Due date (YYYY-MM-DD)
           <input
             className={cn(inputClass, !dueValid && 'border-danger')}
@@ -253,6 +270,6 @@ export default function TaskDetail() {
       <p className="mt-2 text-xs text-muted">
         Archiving hides this quest but keeps all history. Restore from Profile → Archived.
       </p>
-    </motion.div>
+    </div>
   );
 }

@@ -109,6 +109,23 @@ being clear: **JSON is the backup format, not the storage engine** — storage i
 | D4 — Repeatability is editable | ✅ Done (2026-08-02) | Owner: *"unable to edit repeatability of a quest."* Correct — the edit screen had **no Repeat toggle at all**, so a todo could never become repeating and a habit could never stop; the weekday row only appeared for tasks that were *already* habits, and only chose which days. A straight §4 violation ("Edit — change any field"). The toggle now mirrors the capture form, and the type follows from it (counted stays counted — a schedule is orthogonal there, Phase 1.5). Needed a data-layer fix too: `TaskPatch` had no `type` field and the `UPDATE` never wrote the column. Verified todo → habit → todo with a **page reload after each step**, so it proves the DB write rather than React state |
 | D5 — Touch latency | ✅ Done (2026-08-02) | Owner: *"touch response is slow."* Measured rather than guessed, at 4× CPU throttling on a phone viewport: **862 infinite animations running at rest**, because `DotPattern glow` animates every dot individually (GOTCHAS 32). Median frame 54.9ms, p90 116ms, tap-to-paint 152ms. Fixes: ambient grid became one CSS background instead of ~860 animated SVG nodes; the two drifting washes made static (a 42-second cycle nobody can perceive is pure cost); `BorderBeam` removed from every task card and from the capture panel (GOTCHAS 33); `backdrop-filter` dropped from header and nav; animated `blur()` removed from route transitions and headings. **Result: 862 → 0 animations at rest, median frame 16.5ms, tap-to-paint 30ms** — a locked 60fps and a 5× faster tap, with the design unchanged to the eye |
 
+## Phase 1.12 (owner instruction — "fully revamp the visual design and layout, awards level, use gsap")
+
+| Milestone | Status | Notes |
+|---|---|---|
+| D6 — GSAP revamp | ✅ Done (2026-08-02) | Owner: *"it's still not leaving me awestruck."* GSAP added (core + Flip + SplitText + DrawSVG) against §3's own "one animation dependency" rule — the conflict was surfaced with measured sizes and the owner made the call (DECISIONS D28). **Layout rebuilt, not re-skinned**: `StatusHero` replaces `TodayHeader` with a sigil, a big level readout and a **segmented** 20-cell XP rail (a continuous bar reads as a loading indicator; discrete cells read as a game resource and give the completion effect something to land on); capture collapsed to a single command-prompt line; a `SectionBar` gives the screen a spine; quest rows enlarged with a prominent reward chip. **New moments**: a boot sequence (seam of light → window unfolds → per-character title → scanline → iris out, once per session via sessionStorage, tap to skip); an XP shard that arcs from the cleared quest into the status rail, which flinches when it lands; the row igniting; a level-up with shockwave, radial sparks, decaying shake and the sigil slamming in |
+| D7 — Two bugs the revamp exposed | ✅ Done (2026-08-02) | **(1) Every screen's title read "TODAY".** SplitText replaces the text node with a span per character — DOM React thinks it owns. On navigation React committed the new title first and the layout-effect cleanup ran `split.revert()` *after*, restoring the previous text permanently. Fixed by re-keying the heading so React mounts a fresh node instead of patching a split one; verified across all five routes. **(2)** GSAP logged "target not found" on every boot — a new character has zero filled XP cells, so the entrance animated an empty array. Guarded; console is clean |
+
+**Verification**: 63/63 engine tests unchanged, typecheck, lint, production build. In-browser:
+boot sequence captured frame by frame, full regression (create three quest types → complete →
+reload with data persisted → all five routes → detail → level-up), titles asserted per route,
+reduced-motion confirmed (boot skipped entirely rather than flashed). **Performance held at the
+line drawn in Phase 1.11**: 1 animation at rest (the sigil ring — one small transform), median
+frame 16.7ms, tap-to-paint 30.8ms under 4× CPU throttling — statistically identical to before
+GSAP, because every new effect is a transient timeline rather than an idle loop. Bundle: initial
+JS 122.1 → 163.0 KB gz (+40.9), the predicted GSAP cost, now the app's largest single
+non-essential weight and recorded as such.
+
 ## Phase 2
 
 | Item | Status |

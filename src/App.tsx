@@ -1,8 +1,8 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { NavLink, Route, Routes, useLocation } from 'react-router';
 import { SystemHeading } from './components/system/SystemHeading';
 import { LevelUpOverlay } from './components/system/LevelUpOverlay';
+import { BootSequence } from './components/system/BootSequence';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
 import { ensurePersistentStorage } from './db/storage';
@@ -10,6 +10,7 @@ import { runMigrations } from './db/migrations';
 import { useCharacterStore } from './store/useCharacterStore';
 import { useSkillStore } from './store/useSkillStore';
 import { useTaskStore } from './store/useTaskStore';
+import { gsap, useGsap } from './lib/gsap';
 import { cn } from './lib/utils';
 
 // Today is the initial route and loads eagerly; everything else is split out so a cold
@@ -47,7 +48,7 @@ function boot(): Promise<void> {
   bootPromise ??= (async () => {
     // Fired, deliberately not awaited. Ask for durable storage before the first write, but
     // never gate startup on it: browsers that prompt (Firefox) would otherwise leave the app
-    // on its spinner until the user answered a dialog. Profile reads the memoized result.
+    // on its spinner until the user answered. Profile reads the memoized result.
     void ensurePersistentStorage();
 
     const db = await getDb();
@@ -78,14 +79,9 @@ function Spinner() {
 // This layer used to be the single most expensive thing in the app. `DotPattern glow`
 // animates *every dot individually* — at 22px spacing on a phone that is ~860 simultaneous
 // infinite animations, measured, which pushed median frame time to 55ms and tap-to-paint to
-// 152ms. The two drifting washes added two more infinite animations and two full-viewport
-// composited layers on top of that.
-//
-// So the grid is now a single CSS background instead of ~860 animated SVG nodes, and the
-// washes are static. The drift was a 42-second cycle nobody could perceive anyway; §3 makes
-// "smooth on a low-end phone" a first-class constraint, and an imperceptible animation is a
-// pure cost. The vendored DotPattern component is untouched (CONVENTIONS 14b) — this simply
-// no longer uses it here.
+// 152ms (GOTCHAS 32). Nothing here animates at rest any more; the grid is one CSS background
+// instead of ~860 SVG nodes, and every effect in the app is now a transient GSAP timeline
+// that ends.
 function Ambience() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
@@ -110,11 +106,81 @@ function Ambience() {
   );
 }
 
+// The tab rail's lit segment slides between tabs instead of appearing under the new one.
+// Measured from the live DOM rather than computed from an index, so it stays correct if the
+// tab set or the label widths ever change.
+function TabRail({ pathname }: { pathname: string }) {
+  const nav = useRef<HTMLElement | null>(null);
+  const rail = useRef<HTMLSpanElement | null>(null);
+
+  // Index rather than a DOM query: the rail must also settle somewhere sensible on routes
+  // that aren't tabs at all (a task detail, Archived), where no tab is active.
+  const activeIndex = TABS.findIndex(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to)));
+
+  useGsap(
+    nav,
+    () => {
+      const item = nav.current?.querySelectorAll<HTMLElement>('li')[activeIndex];
+      if (!rail.current) return;
+      if (!item) {
+        gsap.to(rail.current, { opacity: 0, duration: 0.2 });
+        return;
+      }
+      gsap.to(rail.current, {
+        x: item.offsetLeft,
+        width: item.offsetWidth,
+        opacity: 1,
+        duration: 0.42,
+        ease: 'power3.out',
+      });
+    },
+    [activeIndex]
+  );
+
+  return (
+    <nav
+      ref={nav}
+      className="relative shrink-0 border-t border-edge bg-bg-alt pb-[env(safe-area-inset-bottom)]"
+    >
+      <span
+        ref={rail}
+        className="pointer-events-none absolute left-0 top-0 h-px bg-accent"
+        style={{ boxShadow: '0 0 10px 1px var(--color-accent)' }}
+        aria-hidden
+      />
+      <ul className="flex">
+        {TABS.map(({ to, label, Icon }) => (
+          <li key={to} className="flex-1">
+            <NavLink
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex flex-col items-center gap-1 py-2.5 font-display text-[10px] uppercase tracking-[0.16em] transition-colors duration-200',
+                  isActive ? 'text-accent' : 'text-muted hover:text-fg'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={isActive ? 'text-glow' : undefined} />
+                  {label}
+                </>
+              )}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
   const { pathname } = location;
+  const main = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     void boot().then(
@@ -122,6 +188,21 @@ export function App() {
       (e: unknown) => setError(e instanceof Error ? e.message : String(e))
     );
   }, []);
+
+  // Screens arrive as a HUD panel powering on: a quick vertical unfold plus a lift, rather
+  // than a cross-fade. Transform + opacity only, so it stays cheap.
+  useGsap(
+    main,
+    () => {
+      if (!ready) return;
+      gsap.fromTo(
+        main.current,
+        { opacity: 0, y: 10, scaleY: 0.985 },
+        { opacity: 1, y: 0, scaleY: 1, duration: 0.34, ease: 'power3.out', clearProps: 'transform' }
+      );
+    },
+    [pathname, ready]
+  );
 
   if (error) {
     return (
@@ -144,85 +225,40 @@ export function App() {
   return (
     <div className="relative flex h-dvh flex-col bg-bg">
       <Ambience />
+      <BootSequence />
 
       {/* Lives at the shell level so a level-up lands wherever the user happens to be —
           completing a quest from Today and from a task's detail screen both count. */}
       <LevelUpOverlay />
 
       <div className="relative mx-auto flex h-full w-full max-w-lg flex-col">
-        <header className="shrink-0 border-b border-edge bg-bg-alt px-4 py-3">
-          {/* animateKey re-runs the blur-in per screen, so the title resolves like a system
-              readout on every navigation rather than only on first mount. */}
-          <SystemHeading as="h1" size="lg" animateKey={pathname}>
-            {title}
-          </SystemHeading>
+        <header className="relative shrink-0 px-4 pb-2 pt-3">
+          <div className="flex items-end justify-between gap-3">
+            <SystemHeading as="h1" size="lg" animateKey={pathname}>
+              {title}
+            </SystemHeading>
+            <span className="pb-1 font-display text-[10px] uppercase tracking-[0.3em] text-muted">
+              System
+            </span>
+          </div>
+          <span className="mt-2 block h-px w-full bg-linear-to-r from-accent/70 via-accent/20 to-transparent" />
         </header>
 
-        <main className="flex flex-1 flex-col overflow-y-auto overscroll-contain">
-          {/* The motion reference cross-fades between sections with a touch of depth rather
-              than sliding. `mode="wait"` keeps the two screens from overlapping mid-scroll. */}
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              className="flex flex-1 flex-col"
-              // Opacity + a hair of scale only. Animating `filter: blur()` across a
-              // full-screen element re-rasterizes the whole route on every frame — it was
-              // costing far more than the depth cue was worth on a phone.
-              initial={{ opacity: 0, scale: 0.985 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.01 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-            >
-              <Suspense fallback={<Spinner />}>
-                <Routes location={location}>
-                  <Route path="/" element={<Today />} />
-                  <Route path="/calendar" element={<Calendar />} />
-                  <Route path="/stats" element={<Stats />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/archived" element={<Archived />} />
-                  <Route path="/task/:id" element={<TaskDetail />} />
-                  <Route path="*" element={<Today />} />
-                </Routes>
-              </Suspense>
-            </motion.div>
-          </AnimatePresence>
+        <main ref={main} className="flex flex-1 flex-col overflow-y-auto overscroll-contain">
+          <Suspense fallback={<Spinner />}>
+            <Routes location={location}>
+              <Route path="/" element={<Today />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/stats" element={<Stats />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/archived" element={<Archived />} />
+              <Route path="/task/:id" element={<TaskDetail />} />
+              <Route path="*" element={<Today />} />
+            </Routes>
+          </Suspense>
         </main>
 
-        <nav className="shrink-0 border-t border-edge bg-bg-alt pb-[env(safe-area-inset-bottom)]">
-          <ul className="flex">
-            {TABS.map(({ to, label, Icon }) => (
-              <li key={to} className="flex-1">
-                <NavLink
-                  to={to}
-                  end={to === '/'}
-                  className={({ isActive }) =>
-                    cn(
-                      'relative flex flex-col items-center gap-1 py-2 font-display text-[11px] uppercase tracking-[0.12em] transition-colors',
-                      isActive ? 'text-accent' : 'text-muted hover:text-fg'
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* The active tab is marked the way the reference marks a selected
-                          system window — a lit rail and bracket ticks, not a colour swap. */}
-                      {isActive && (
-                        <motion.span
-                          layoutId="tab-rail"
-                          className="absolute inset-x-3 top-0 h-px bg-accent"
-                          style={{ boxShadow: '0 0 8px var(--color-accent)' }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 34 }}
-                        />
-                      )}
-                      <Icon className={isActive ? 'text-glow' : undefined} />
-                      {label}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <TabRail pathname={pathname} />
       </div>
     </div>
   );

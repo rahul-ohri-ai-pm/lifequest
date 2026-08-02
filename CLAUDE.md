@@ -71,12 +71,22 @@ phone. This is a standing constraint on every dependency and every screen, not a
 
 - No heavy animation libraries (no Lottie, no `three.js`/skia-heavy effects). All "gamified" motion
   — level-up flashes, progress bar fills, badge unlocks — is built with `motion` driving simple
-  transforms/opacity/glow, not asset playback. `motion` is ~33 KB gzipped and is the one animation
-  dependency; it arrived with Magic UI and nothing else may join it.
+  transforms/opacity/glow, not asset playback. **Two** animation dependencies, and no more:
+  `motion` (~33 KB gz, arrived with Magic UI and is what every vendored primitive in
+  `src/components/ui/` is built on) and `gsap` (~41 KB gz with the Flip, SplitText and DrawSVG
+  plugins, added 2026-08-02 on the owner's call — see DECISIONS D28). GSAP earns its place on
+  three effects that are impractical otherwise: Flip for shared-element morphs, SplitText for
+  per-character reveals, DrawSVG for borders that draw themselves on. Nothing else may join
+  them, and neither is a licence to animate more — see the standing rule below.
 - No custom illustrated art assets (see §5 — vector/glow-panel art direction only). Icons are
   inline SVG components, not an icon-font package or a sprite sheet.
 - Before adding any new dependency, check its bundle size. Prefer zero-dependency or
   already-included solutions over pulling in a new package for a small feature.
+- **Nothing animates at rest.** Every effect must be a transient timeline that ends. An
+  infinite animation behind the app is a permanent tax on every interaction: `DotPattern glow`
+  put ~860 of them on screen at once and took tap-to-paint from 30ms to 152ms (GOTCHAS 32).
+  Check `document.getAnimations().length` on Today before shipping any ambient effect — at
+  rest it should be 0, or 1 for the sigil ring.
 - Routes that aren't the initial one (Calendar, Stats, Profile, Archived, task detail) are
   `React.lazy`-loaded in `src/App.tsx` so each becomes its own chunk — don't collapse them into
   one eagerly-loaded bundle.

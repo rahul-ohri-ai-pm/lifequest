@@ -53,9 +53,14 @@ and ask the owner instead of improvising.
 
 13. **Adding a dependency is a last resort.** The lightweight constraint (CLAUDE.md §3) is
     first-class: no Lottie, no icon fonts, no calendar/date-picker libs, no ORM, no component
-    kits beyond the vendored Magic UI primitives. `motion` is the one animation dependency and
-    nothing else may join it. If a package is truly needed, check its gzipped size first and note
-    it in PROGRESS.md's debt section.
+    kits beyond the vendored Magic UI primitives. There are exactly **two** animation
+    dependencies — `motion` (what the vendored Magic UI primitives are built on) and `gsap`
+    (DECISIONS D28) — and nothing else may join them. If a package is truly needed, check its
+    gzipped size first and note it in PROGRESS.md's debt section.
+13b. **Every animation must end.** Nothing may animate at rest: no infinite CSS keyframes and
+    no `repeat: -1` timelines behind the app. This is not a style preference — it is the rule
+    that was violated to the tune of 862 simultaneous animations and a 5× slower tap
+    (GOTCHAS 32-33). GSAP timelines are transient by default; keep it that way.
 14. **Colors come from the `@theme` tokens in `src/index.css`** — reach them through Tailwind
     classes (`bg-panel`, `text-accent`, `border-edge`). `src/constants/theme.ts` holds the same
     palette as *values*, for SVG props and data-driven inline styles only; keep the two in sync.

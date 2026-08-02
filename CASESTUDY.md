@@ -355,6 +355,43 @@ notes since the last design pass turned out to be a black progress bar on a blac
 border. **Rebuilding a surface is one of the more reliable ways to find what is wrong underneath
 it.**
 
+## Step 11 — "Still not awestruck" (2026-08-02)
+
+**What happened**: After the redesign shipped, the owner's verdict was *"it's still not leaving me
+awestruck, can you use gsap to make it more impressive?"* — a request that broke a rule the owner
+himself had written: GSAP is a second animation dependency, and the spec said `motion` was the only
+one allowed.
+
+**Call 1 — surface the conflict, don't resolve it silently.** There were two easy wrong moves:
+install it quietly, or refuse and cite the spec. Both hide a decision that belongs to the owner. So
+the conflict was named in one sentence and put back with real numbers measured from the package,
+not recalled: core 27.6 KB gz, Flip 9.5, SplitText 3.6, DrawSVG ~6, against a 135 KB budget. Also
+disclosed: GSAP's once-paid plugins are now free, which genuinely changed the answer — and that
+`motion` could not be dropped in exchange, because every vendored UI primitive depends on it. **A
+spec is worth having only if breaking it is a visible act.**
+
+**Call 2 — say the uncomfortable part.** The honest read was that the library was not the
+bottleneck; the app was under-animated by design choice. That was stated plainly alongside the
+option to proceed. The owner's answer — *"fully revamp the visual design and layout, awards
+level"* — settled it: the real ask was never GSAP, it was ambition. GSAP was the permission slip.
+Reading it as a library request would have produced 41 KB of dependency and the same flat app.
+
+**Call 3 — the new rule matters more than the new library.** The previous round had ended by
+deleting 862 idle animations to fix a 5× slower tap. Adding an animation library one round later
+is exactly how that regression comes back. So the amendment that shipped with GSAP was not only
+"you may now use it" but a *new hard constraint*: **nothing animates at rest** — every effect must
+be a timeline that ends. The result held the line exactly: tap-to-paint 30.8ms after the revamp
+versus 30.1ms before, with a boot sequence, an XP shard that arcs into the status rail, and a
+level-up shockwave added. **Loosening one constraint is the right moment to tighten another.**
+
+**The bug that only a real screen would show.** The revamp shipped a defect that compiled, passed
+every test, and looked fine in isolation: every screen's title read "TODAY". SplitText replaces a
+text node with one span per character — DOM React believes it owns — so on navigation React
+committed the new title first and the cleanup restored the old one, permanently. It was caught by
+asserting the heading text on all five routes in a browser, not by reading the code. **Libraries
+that mutate the DOM are borrowing something React thinks it owns, and the interest is paid at the
+worst possible time.**
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -373,6 +410,7 @@ it.**
 | 2026-07-30 | "Re-run deploy but don't end up in a loop — last time you ended up in a loop" | Owner enabled Pages; one manual run went green and the app is live. The no-loop instruction was itself a process fix — see Step 8 |
 | 2026-08-02 | "Is magicuidesign installed?" | Answered with the real blocker rather than a yes/no: available as an MCP server, unusable against React Native primitives |
 | 2026-08-02 | "Let's remove Expo code and use Tailwind + framer-motion so that we can use Magic UI as is" | Full web rewrite (Step 9). Concern stated once, three shape-changing choices put to the owner, then delivered end-to-end. Engine, types, stores, and all SQL survived unchanged; 63/63 tests green on a new runner |
+| 2026-08-02 | "It's still not leaving me awestruck — use GSAP" → "fully revamp the visual design and layout, awards level" | Named the spec conflict (§3 allowed one animation library) and put it back with measured sizes rather than breaking or refusing it quietly. Read the ask as ambition rather than as a library request, rebuilt the layout, and paired the new dependency with a *new* hard rule — nothing animates at rest — so the previous round's performance regression could not return (Step 11) |
 | 2026-08-02 | "Make the web app look like *this*, with interactions like *this*" (two Pinterest links, no other brief) | Both references opened and actually read — the poster at full resolution, the motion clip decoded to frames — then taken *selectively*: structure adopted, palette rejected in favour of §5's blue, and the "permanent XP loss" framing kept as visuals only because it contradicts the forgiving-progression goal. Three shape-changing choices put to the owner before any code (Step 10) |
 | 2026-08-02 | "Merge and push, ensure everything is working first. Delete stale directories" | Clean-room `npm ci` + full gate, then the live site itself was exercised after deploy (round-trip, all routes, deep links, offline cold launch). A high-severity router advisory surfaced during the check and was cleared rather than waved past. 1.7 GB of dead Expo/Gradle output deleted |
 
@@ -408,7 +446,12 @@ it.**
 14. **"Your moodboard is not your spec."** My designer sent two images and no brief. Two of the
     three biggest decisions were about what *not* to copy — including the reference's best-looking
     element, which happened to argue against the product's founding promise.
-15. **"I nearly designed from the caption instead of the picture."** The pin's text said "habit
+15. **"My user asked for a library. He actually wanted permission."** "Use GSAP" was never about
+    GSAP — reading it literally would have shipped 41 KB of dependency and the same flat app.
+16. **"I loosened one rule, so I tightened another."** Adding an animation library one round
+    after deleting 862 animations to fix a 5× slower tap. The new dependency came with a new
+    constraint attached, and the tap stayed at 30ms.
+17. **"I nearly designed from the caption instead of the picture."** The pin's text said "habit
     tracker"; the image said icon cell, inline progress bar, reward tag, radar chart. Reading the
     reference properly was the whole difference between a redesign and a re-theme.
 
