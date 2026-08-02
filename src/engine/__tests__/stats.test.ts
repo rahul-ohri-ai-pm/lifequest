@@ -2,6 +2,7 @@ import {
   activeDaysInLast,
   distinctActiveDays,
   lastNDayCounts,
+  rangeSummary,
   scheduledOutcomes,
   skillBreakdown,
   topTasks,
@@ -147,5 +148,51 @@ describe('xpOnDay', () => {
   it('sums xp for the local day only', () => {
     const cs = [completion('a', 2026, 6, 11, 25), completion('b', 2026, 6, 11, 10), completion('c', 2026, 6, 10, 99)];
     expect(xpOnDay(cs, TODAY)).toBe(35);
+  });
+});
+
+describe('rangeSummary', () => {
+  const today = new Date(2026, 2, 10); // 2026-03-10
+  const c = (day: string, xp: number, id = day): Completion => ({
+    id,
+    taskId: 't',
+    completedAt: new Date(`${day}T12:00:00`).toISOString(),
+    progressCount: null,
+    xpAwarded: xp,
+    createdAt: new Date(`${day}T12:00:00`).toISOString(),
+  });
+  const rows = [
+    c('2026-03-10', 25, 'a'), // today
+    c('2026-03-10', 10, 'b'), // same day, second completion
+    c('2026-03-08', 25, 'c'), // 3 days ago
+    c('2026-02-20', 50, 'd'), // ~18 days ago
+    c('2025-11-01', 100, 'e'), // last year
+  ];
+
+  it('day = today only', () => {
+    expect(rangeSummary(rows, 1, today)).toMatchObject({ completions: 2, xp: 35, activeDays: 1 });
+  });
+
+  it('week includes the boundary day', () => {
+    // 7 days ending today = 2026-03-04..03-10, so the 03-08 row is in.
+    expect(rangeSummary(rows, 7, today)).toMatchObject({ completions: 3, xp: 60, activeDays: 2 });
+  });
+
+  it('month reaches back 30 days', () => {
+    expect(rangeSummary(rows, 30, today)).toMatchObject({ completions: 4, xp: 110, activeDays: 3 });
+  });
+
+  it('all time counts everything and has no rate', () => {
+    const s = rangeSummary(rows, null, today);
+    expect(s).toMatchObject({ completions: 5, xp: 210, activeDays: 4 });
+    expect(s.activeRate).toBeNull();
+  });
+
+  it('reports the active-day rate within a bounded range', () => {
+    expect(rangeSummary(rows, 7, today).activeRate).toBeCloseTo(2 / 7);
+  });
+
+  it('is empty for an empty log', () => {
+    expect(rangeSummary([], 7, today)).toMatchObject({ completions: 0, xp: 0, activeDays: 0 });
   });
 });

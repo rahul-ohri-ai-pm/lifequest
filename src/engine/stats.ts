@@ -146,3 +146,40 @@ export function xpOnDay(completions: Completion[], day: Date): number {
     .filter((c) => completionDayKey(c) === key)
     .reduce((sum, c) => sum + c.xpAwarded, 0);
 }
+
+export interface RangeSummary {
+  completions: number;
+  xp: number;
+  activeDays: number;
+  /** Days in the range that had at least one completion, as a fraction 0..1. Null for
+   *  all-time, where "out of how many days" has no meaningful denominator. */
+  activeRate: number | null;
+}
+
+// Headline figures for the dashboard's range filter (§10 Phase 2: day/week/month/all-time).
+// `days` null = all time; otherwise the window is the last `days` days INCLUDING today, which
+// matches topTasks/skillBreakdown so every panel on the screen agrees on what "this week"
+// means. A dashboard whose panels disagree about the range is worse than no dashboard.
+export function rangeSummary(
+  completions: Completion[],
+  days: number | null,
+  today: Date
+): RangeSummary {
+  const from = days === null ? null : dayKeyFor(addDays(today, -(days - 1)));
+  const active = new Set<string>();
+  let count = 0;
+  let xp = 0;
+  for (const c of completions) {
+    const key = completionDayKey(c);
+    if (from !== null && key < from) continue;
+    count++;
+    xp += c.xpAwarded;
+    active.add(key);
+  }
+  return {
+    completions: count,
+    xp,
+    activeDays: active.size,
+    activeRate: days === null ? null : active.size / days,
+  };
+}

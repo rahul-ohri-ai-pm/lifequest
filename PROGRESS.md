@@ -148,8 +148,15 @@ survived, streaks appeared, no exceptions. A fresh-install test would have prove
 this. (It also caught a stale `dist/` on the first attempt, which would have silently tested the
 old build against itself — GOTCHAS 30 again, third time this session.)
 
-**Still open in Phase 2**: badge engine + gallery, and the full per-skill dashboard with
-day/week/month/all-time filters.
+| P2 — Skill dashboard | ✅ Done (2026-08-02) | Stats rebuilt as a HUD dashboard with the §10 **Day/Week/Month/All** filter governing every panel (a dashboard whose panels disagree about "this week" is worse than none). KPI tiles → activity column chart → per-skill breakdown (level/XP/completions) → follow-through meter → top quests. New `rangeSummary` engine aggregation with 6 tests (**89 total**). GSAP throughout: panels power on in sequence, bars grow from the baseline, XP figures count up, and changing the range replays the lot. Built against the `dataviz` skill, which produced a real finding — see DECISIONS D31: the eight skill colours **fail** CVD validation (worst pair ΔE 2.5), no eight-hue set can pass, so bars are single-hue and colour only ever appears beside a name |
+
+**Still open in Phase 2**: badge engine + gallery.
+
+**A note on the range test.** The obvious browser assertion — "KPIs change when you change the
+range" — is useless with same-day seed data, because Day/Week/Month/All *all* legitimately
+include today and correctly show identical numbers. The assertion that actually proves the
+filter is wired is the activity chart's column count, which is range-derived: 7/7/30/60.
+Verified. The range *math* is owned by the engine tests, which use dated rows.
 
 ## Phase 3
 
