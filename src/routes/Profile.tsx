@@ -4,6 +4,7 @@ import { BorderBeam } from '../components/ui/border-beam';
 import { NumberTicker } from '../components/ui/number-ticker';
 import { SystemPanel } from '../components/system/SystemPanel';
 import { RuneDivider } from '../components/system/RuneDivider';
+import { StorageStatus } from '../components/StorageStatus';
 import { SkillRadar } from '../components/system/SkillRadar';
 import { StatBar } from '../components/system/StatBar';
 import { Sigil } from '../components/system/Sigil';
@@ -95,6 +96,9 @@ export default function Profile() {
           </SystemPanel>
         </>
       )}
+
+      <RuneDivider label="Storage" />
+      <StorageStatus />
 
       <Link
         to="/archived"

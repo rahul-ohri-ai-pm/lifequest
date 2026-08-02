@@ -6,6 +6,7 @@ import { SystemHeading } from './components/system/SystemHeading';
 import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
+import { ensurePersistentStorage } from './db/storage';
 import { runMigrations } from './db/migrations';
 import { useCharacterStore } from './store/useCharacterStore';
 import { useSkillStore } from './store/useSkillStore';
@@ -45,6 +46,11 @@ let bootPromise: Promise<void> | null = null;
 
 function boot(): Promise<void> {
   bootPromise ??= (async () => {
+    // Fired, deliberately not awaited. Ask for durable storage before the first write, but
+    // never gate startup on it: browsers that prompt (Firefox) would otherwise leave the app
+    // on its spinner until the user answered a dialog. Profile reads the memoized result.
+    void ensurePersistentStorage();
+
     const db = await getDb();
     await runMigrations(db);
     await Promise.all([

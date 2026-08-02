@@ -88,6 +88,20 @@ bites when the prose names a utility the app doesn't already use, which is why t
 itself built byte-identical. GOTCHAS 20.) Driving a browser at the live URL is not possible from an agent session — Chromium's
 CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 21).
 
+## Phase 1.10 (owner: "let's fix storage")
+
+| Milestone | Status | Notes |
+|---|---|---|
+| D3 — Durable storage request + honest reporting | ✅ Done (2026-08-02) | `src/db/storage.ts` calls `navigator.storage.persist()` once per page load, fired from `boot()` but **deliberately not awaited** — Firefox prompts, and awaiting it would hold the app on its spinner behind a dialog. The grant is never ours to make (Chrome infers from engagement, Safari grants on home-screen install), so the outcome is *shown* rather than assumed: Profile renders `persisted` / `best-effort` / `unsupported` from the memoized result, with the at-risk case getting the only alert treatment. Verified in a browser, including the failure path — headless Chromium refuses the grant, and the panel correctly reads "STORAGE EVICTABLE" with the home-screen advice. The success path could not be exercised headlessly and remains unconfirmed on a real device |
+
+**A question worth recording**: the owner asked whether a JSON export would still be sane once it
+holds a year of data. Measured against the real schema rather than guessed — a realistic 5
+completions/day for a year is **425 KB of JSON, 47 KB gzipped**; ten years of heavy use (20/day) is
+15 MB / 1.6 MB gz. A year of history is roughly *half the size of the SQLite wasm binary the app
+already ships*, so JSON stays the export format (as CLAUDE.md §10 planned). Revisit only past
+~50 MB, where `JSON.stringify` over the whole DB starts to matter on a low-end phone. Also worth
+being clear: **JSON is the backup format, not the storage engine** — storage is SQLite in OPFS.
+
 ## Phase 2
 
 | Item | Status |
@@ -126,12 +140,15 @@ CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 21).
   one phone. Don't spend effort on WebKit-specific OPFS quota, service-worker lifetime, or
   home-screen storage-scoping differences — earlier notes here overstated that risk by reasoning
   about a general audience this product does not have
-- **Nothing prevents the browser evicting the database.** OPFS is the only copy of every quest,
-  completion and XP row (§2: no cloud, deliberately). Clearing site data wipes it, and browsers may
-  evict origin storage under disk pressure. `navigator.storage.persist()` is a one-call mitigation
-  that has never been added, and installing the PWA to the home screen makes eviction much less
-  likely but is not a guarantee. This is the strongest argument for pulling the Phase 3 JSON
-  export/import forward — it is the only backup a no-server app can have
+- **Browser eviction is now requested against, but cannot be guaranteed.** OPFS is the only copy of
+  every quest, completion and XP row (§2: no cloud, deliberately). `src/db/storage.ts` asks for
+  durable storage at boot (D3 below), but the grant is the browser's call, not ours — Chrome
+  decides from engagement signals, Firefox prompts, Safari grants on home-screen install. Profile
+  reports the real outcome instead of assuming success. Clearing site data still wipes everything
+  regardless. **This remains the strongest argument for pulling the Phase 3 JSON export/import
+  forward** — a request the browser may refuse is not a backup, and export/import is the only one a
+  no-server app can have. Measured: a realistic year of history is ~425 KB of JSON (47 KB gzipped),
+  so file size is no reason to delay it
 - `sqlite3-worker1.js` and `sqlite3-opfs-async-proxy.js` (~243 KB combined) are emitted into
   `dist/` because the sqlite-wasm entrypoint references them, but the sahpool path never loads
   them. Dead weight on disk, not on the wire — not worth patching the package to strip
