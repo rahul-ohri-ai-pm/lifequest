@@ -130,7 +130,7 @@ non-essential weight and recorded as such.
 
 | Item | Status |
 |---|---|
-| Streak engine (tested) | ⬜ — next up |
+| Streak engine (tested) | ⬜ — **next up**. Needs migration `0003` (`streaks`, `streak_resets`) + `src/engine/streaks.ts`. Highest-risk math since Phase 1: transitions interact with local-time day keys and DST (D4), with per-habit schedules, and with skip-vs-miss (§7 treats them the same for streaks but they are separate tables). The hard part is **retroactive detection** — miss three days without opening the app and the breaks must still be found and recorded on next launch, so the engine has to derive state from the completions log rather than from "what happened since last time I ran" |
 | Skills migration + tagging + split XP | ✅ Pulled forward into Phase 1.5 (N4 `919b5c7`): `0002` migration, 8 defaults, split XP in the completion transactions, MRU chips |
 | Badge engine + gallery | ⬜ |
 | Skill dashboard | ⬜ — partially covered by the N5 by-category panel; the full per-skill dashboard with day/week/month/all-time filters is still open |
@@ -142,7 +142,7 @@ non-essential weight and recorded as such.
 | Goals engine + UI | ⬜ |
 | Full stats + heatmap | ⬜ |
 | Local notifications | ⬜ |
-| Level-up animations | ⬜ |
+| Level-up animations | ✅ Pulled forward into Phase 1.12 (D6): shockwave, radial sparks, decaying shake, sigil slam-in |
 | JSON export/import | ⬜ |
 
 ## Known issues / tech debt
