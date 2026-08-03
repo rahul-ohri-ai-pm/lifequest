@@ -113,11 +113,22 @@ export function StreakIcon({ className, size = 14 }: IconProps) {
 // forbids icon-font packages, and these are the only eight shapes the app will ever need.
 // Looked up by skill name so a renamed or user-added category falls back gracefully.
 
+// Duotone: a filled body under a stroked outline. The straight 1.8px hairlines these
+// replace were legible but weightless — the reference's category marks are large, solid and
+// individually recognisable, and that mass is what makes a list scannable by icon rather than
+// by reading every title. Fill is `currentColor` at low alpha, so one colour still drives the
+// whole glyph and a skill's stored colour tints body and outline together.
+const body = { fill: 'currentColor', fillOpacity: 0.18, stroke: 'currentColor', strokeWidth: 1.6 } as const;
+
 export function DietIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M12 21c-4 0-7-3-7-7 0-4.5 3.5-8.5 7-10 3.5 1.5 7 5.5 7 10 0 4-3 7-7 7z" strokeLinejoin="round" />
-      <path d="M12 21V8" strokeLinecap="round" />
+      <path
+        d="M12 7.4c1.3-1 2.6-1.2 3.9-.6 1.8.8 2.9 2.9 2.9 5.4 0 4-2.6 8-4.9 8-.9 0-1.3-.5-1.9-.5s-1 .5-1.9.5c-2.3 0-4.9-4-4.9-8 0-2.5 1.1-4.6 2.9-5.4 1.3-.6 2.6-.4 3.9.6z"
+        {...body}
+        strokeLinejoin="round"
+      />
+      <path d="M12 7.4V4.6M12 4.6c0-1.2 1-2.1 2.6-2.1 0 1.3-1 2.1-2.6 2.1z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -125,8 +136,10 @@ export function DietIcon({ className, size = 18 }: IconProps) {
 export function CareerIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <rect x={3} y={7} width={18} height={13} rx={2} />
-      <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M3 12h18" strokeLinecap="round" />
+      <rect x={2.8} y={7} width={18.4} height={13.2} rx={2.2} {...body} />
+      <path d="M8.8 7V5.2a2 2 0 012-2h2.4a2 2 0 012 2V7" strokeLinecap="round" />
+      <path d="M2.8 12.4h18.4" strokeLinecap="round" />
+      <rect x={10.4} y={10.9} width={3.2} height={3} rx={0.8} fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -134,8 +147,9 @@ export function CareerIcon({ className, size = 18 }: IconProps) {
 export function ReadingIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2z" strokeLinejoin="round" />
-      <path d="M12 6.5v13" strokeLinecap="round" />
+      <path d="M12 6.6C10.4 5 7.9 4.4 3.8 4.4v13.2c4.1 0 6.6.6 8.2 2.2V6.6z" {...body} strokeLinejoin="round" />
+      <path d="M12 6.6c1.6-1.6 4.1-2.2 8.2-2.2v13.2c-4.1 0-6.6.6-8.2 2.2V6.6z" {...body} strokeLinejoin="round" />
+      <path d="M6.4 8.4h3M6.4 11.4h3M14.6 8.4h3M14.6 11.4h3" strokeLinecap="round" opacity={0.7} />
     </svg>
   );
 }
@@ -143,7 +157,10 @@ export function ReadingIcon({ className, size = 18 }: IconProps) {
 export function FitnessIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" strokeLinecap="round" />
+      <rect x={5.4} y={6.6} width={3.4} height={10.8} rx={1.1} {...body} />
+      <rect x={15.2} y={6.6} width={3.4} height={10.8} rx={1.1} {...body} />
+      <path d="M2.6 9.6v4.8M21.4 9.6v4.8" strokeLinecap="round" />
+      <path d="M8.8 12h6.4" strokeWidth={2.2} strokeLinecap="round" />
     </svg>
   );
 }
@@ -151,8 +168,14 @@ export function FitnessIcon({ className, size = 18 }: IconProps) {
 export function GamingIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <rect x={2.5} y={7} width={19} height={10} rx={4} />
-      <path d="M7 10v4M5 12h4M15.5 11.5h.01M18 13.5h.01" strokeLinecap="round" />
+      <path
+        d="M7.4 7h9.2a4.6 4.6 0 014.5 3.7l.7 4.1A2.9 2.9 0 0119 18.2c-1 0-1.6-.5-2.3-1.2l-.9-.9H8.2l-.9.9c-.7.7-1.3 1.2-2.3 1.2a2.9 2.9 0 01-2.8-3.4l.7-4.1A4.6 4.6 0 017.4 7z"
+        {...body}
+        strokeLinejoin="round"
+      />
+      <path d="M6.6 10.6v3.2M5 12.2h3.2" strokeLinecap="round" />
+      <circle cx={16} cy={11.4} r={1} fill="currentColor" stroke="none" />
+      <circle cx={18} cy={13.6} r={1} fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -160,9 +183,10 @@ export function GamingIcon({ className, size = 18 }: IconProps) {
 export function SocialIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <circle cx={9} cy={8} r={3} />
-      <path d="M3 20c1-3.5 3.5-5 6-5s5 1.5 6 5" strokeLinecap="round" />
-      <path d="M16 6.5a3 3 0 010 5.5M18 20c-.4-1.6-1-2.9-1.8-3.9" strokeLinecap="round" />
+      <circle cx={9.2} cy={7.8} r={3.4} {...body} />
+      <path d="M2.6 20c.9-3.7 3.5-5.4 6.6-5.4S14.9 16.3 15.8 20z" {...body} strokeLinejoin="round" />
+      <circle cx={17} cy={9} r={2.4} {...body} />
+      <path d="M17.6 14.8c2 .6 3.3 2.2 3.8 4.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -170,8 +194,14 @@ export function SocialIcon({ className, size = 18 }: IconProps) {
 export function TradingIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M3 17l5.5-5.5 3.5 3.5L21 6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M15 6h6v6" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Candlesticks rather than a plain up-arrow: this is the one category whose whole
+          activity is reading a chart, and a rising arrow is also every other "progress" mark
+          in the app. */}
+      <path d="M6.4 6.6v11M12 3.6v13.2M17.6 8.4v9" strokeLinecap="round" opacity={0.75} />
+      <rect x={4.6} y={9} width={3.6} height={6.2} rx={0.8} {...body} />
+      <rect x={10.2} y={6} width={3.6} height={7.4} rx={0.8} {...body} />
+      <rect x={15.8} y={10.6} width={3.6} height={5} rx={0.8} {...body} />
+      <path d="M3 21h18" strokeLinecap="round" opacity={0.5} />
     </svg>
   );
 }
@@ -179,7 +209,8 @@ export function TradingIcon({ className, size = 18 }: IconProps) {
 export function CategoryFallbackIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
-      <path d="M12 3l9 9-9 9-9-9 9-9z" strokeLinejoin="round" />
+      <path d="M12 2.8l9.2 9.2-9.2 9.2L2.8 12z" {...body} strokeLinejoin="round" />
+      <path d="M12 7.6L16.4 12 12 16.4 7.6 12z" strokeLinejoin="round" opacity={0.65} />
     </svg>
   );
 }

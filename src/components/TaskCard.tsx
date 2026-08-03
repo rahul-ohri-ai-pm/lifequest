@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { SystemPanel } from './system/SystemPanel';
+import { CategorySlot } from './system/CategorySlot';
 import {
   CheckIcon,
   CountedIcon,
@@ -142,12 +143,10 @@ export function TaskCard({
         style={{ backgroundColor: tint, boxShadow: done ? `0 0 8px ${tint}` : undefined }}
       />
 
-      <div className="grid w-12 shrink-0 place-items-center" style={{ color: done ? tint : undefined }}>
-        {untagged ? (
-          <TypeIcon size={20} className={done ? undefined : 'text-muted'} />
-        ) : (
-          <CategoryIcon name={reward.label} size={20} className={done ? undefined : 'text-muted'} />
-        )}
+      <div className="grid w-14 shrink-0 place-items-center">
+        <CategorySlot color={reward.color} dim={inactive}>
+          {untagged ? <TypeIcon size={22} /> : <CategoryIcon name={reward.label} size={22} />}
+        </CategorySlot>
       </div>
 
       {/* The title is the navigation target; the meta row is its sibling, not its child, so the

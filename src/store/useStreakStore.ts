@@ -29,6 +29,9 @@ interface StreakStoreState {
    *  already builds it — the alternative is a second full read of `completions` for the
    *  week strip, which is the same work twice. */
   activeDays: ReadonlySet<string>;
+  /** Lifetime completion rows. Same reasoning as `activeDays` — hydrate already holds the
+   *  whole log in hand, so counting it here is free and saves Profile a second read. */
+  totalCompletions: number;
   hydrate(tasks: Task[], now: Date): Promise<void>;
 }
 
@@ -38,6 +41,7 @@ export const useStreakStore = create<StreakStoreState>((set) => ({
   byTask: {},
   global: null,
   activeDays: new Set<string>(),
+  totalCompletions: 0,
 
   hydrate: async (tasks, now) => {
     const [completions, stored] = await Promise.all([getAllCompletions(), streakQueries.getStreaks()]);
@@ -120,7 +124,7 @@ export const useStreakStore = create<StreakStoreState>((set) => ({
       global.resetCount = persistedGlobal.resetCount;
     }
 
-    set({ byTask, global, activeDays });
+    set({ byTask, global, activeDays, totalCompletions: completions.length });
   },
 }));
 

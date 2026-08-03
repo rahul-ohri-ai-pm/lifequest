@@ -36,7 +36,7 @@ function polygon(n: number, t: number, values?: number[]): string {
 }
 
 export function SkillRadar({ axes, className, size = 220 }: Props) {
-  // A radar needs at least a triangle. Fewer skills than that is a StatBar list's job.
+  // A radar needs at least a triangle. Fewer skills than that is the SkillRow list's job.
   if (axes.length < 3) return null;
 
   const n = axes.length;

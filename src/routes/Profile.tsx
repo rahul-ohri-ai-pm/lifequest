@@ -6,10 +6,12 @@ import { SystemPanel } from '../components/system/SystemPanel';
 import { RuneDivider } from '../components/system/RuneDivider';
 import { StorageStatus } from '../components/StorageStatus';
 import { SkillRadar } from '../components/system/SkillRadar';
-import { StatBar } from '../components/system/StatBar';
+import { SkillRow } from '../components/system/SkillRow';
 import { Sigil } from '../components/system/Sigil';
+import { BoltIcon, CalendarIcon, CheckIcon, StreakIcon } from '../components/icons';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { useSkillStore } from '../store/useSkillStore';
+import { useStreakStore } from '../store/useStreakStore';
 import { levelProgress } from '../engine/xp';
 import { colors, text } from '../constants/theme';
 
@@ -19,9 +21,34 @@ import { colors, text } from '../constants/theme';
 // web says something true about which areas are being neglected.
 //
 // This screen was ~85% empty before — PROGRESS.md carried it as an open design item.
+
+/** One cell of the lifetime-record strip: a glyph, a count, a caption. */
+function Record({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span style={{ color: tone ?? colors.accent }}>{icon}</span>
+      <span className="font-display text-lg leading-none tabular-nums text-fg">{value}</span>
+      <span className="font-display text-[9px] uppercase tracking-[0.16em] text-muted">{label}</span>
+    </div>
+  );
+}
+
 export default function Profile() {
   const character = useCharacterStore((s) => s.character);
   const skills = useSkillStore((s) => s.skills);
+  const totalCompletions = useStreakStore((s) => s.totalCompletions);
+  const activeDays = useStreakStore((s) => s.activeDays);
+  const global = useStreakStore((s) => s.global);
 
   // Strongest first, so the stat block leads with what the user has actually built.
   const ranked = useMemo(() => [...skills].sort((a, b) => b.totalXp - a.totalXp || a.name.localeCompare(b.name)), [skills]);
@@ -61,23 +88,39 @@ export default function Profile() {
         <p className="mt-2 font-display text-fg">
           XP: <NumberTicker value={character.totalXp} /> / {p.nextLevelXp}
         </p>
+
+        {/* The record. Profile had nothing to say about history — it showed a level and a bar,
+            both of which Today already shows. These four are the numbers that only make sense
+            on a profile, and every one is counted from the log rather than stored (§4). */}
+        <div className="mt-5 grid w-full grid-cols-4 gap-2 border-t border-edge/60 pt-4">
+          <Record icon={<CheckIcon size={15} />} label="Cleared" value={totalCompletions} />
+          <Record icon={<CalendarIcon size={15} />} label="Days" value={activeDays.size} />
+          <Record icon={<BoltIcon size={15} />} label="Total XP" value={character.totalXp} />
+          <Record
+            icon={<StreakIcon size={15} />}
+            label="Best"
+            value={global?.longest ?? 0}
+            tone={colors.epic}
+          />
+        </div>
       </SystemPanel>
 
       <RuneDivider label="Skills" />
 
-      <SystemPanel brackets={false} innerClassName="flex flex-col gap-2.5 px-4 py-4">
+      <SystemPanel brackets={false} innerClassName="flex flex-col gap-3.5 px-4 py-4">
         {ranked.length === 0 ? (
           <p className="text-center text-sm text-muted">No categories yet.</p>
         ) : (
           ranked.map((skill, i) => {
             const sp = levelProgress(skill.totalXp);
             return (
-              <StatBar
+              <SkillRow
                 key={skill.id}
-                label={skill.name}
-                value={sp.level}
-                progress={skill.totalXp === 0 ? 0 : sp.progress}
+                name={skill.name}
                 color={skill.color}
+                level={sp.level}
+                totalXp={skill.totalXp}
+                progress={skill.totalXp === 0 ? 0 : sp.progress}
                 delay={Math.min(i, 8) * 0.05}
               />
             );
