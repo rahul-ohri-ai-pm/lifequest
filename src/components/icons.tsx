@@ -1,3 +1,4 @@
+import { cn } from '../lib/utils';
 // Inline SVG icons (§5) — stroke-styled to match the glow-panel treatment, and inline
 // rather than an icon-font package so the icon budget never grows past what's used.
 interface IconProps {
@@ -118,7 +119,7 @@ export function StreakIcon({ className, size = 14 }: IconProps) {
 // individually recognisable, and that mass is what makes a list scannable by icon rather than
 // by reading every title. Fill is `currentColor` at low alpha, so one colour still drives the
 // whole glyph and a skill's stored colour tints body and outline together.
-const body = { fill: 'currentColor', fillOpacity: 0.18, stroke: 'currentColor', strokeWidth: 1.6 } as const;
+const body = { fill: 'currentColor', fillOpacity: 0.42, stroke: 'currentColor', strokeWidth: 1.6 } as const;
 
 export function DietIcon({ className, size = 18 }: IconProps) {
   return (
@@ -236,7 +237,7 @@ const CATEGORY_ICONS: Record<string, (p: IconProps) => React.ReactElement> = {
  */
 export function CategoryIcon({ name, className, size = 18 }: IconProps & { name: string | null | undefined }) {
   const Icon = CATEGORY_ICONS[(name ?? '').trim().toLowerCase()] ?? CategoryFallbackIcon;
-  return <Icon className={className} size={size} />;
+  return <Icon className={cn('glyph-3d', className)} size={size} />;
 }
 
 export function UndoIcon({ className, size = 15 }: IconProps) {

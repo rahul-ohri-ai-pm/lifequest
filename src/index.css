@@ -156,6 +156,14 @@
   );
 }
 
+/* Lifts a category glyph off its slot. A hard 1px shadow directly under the shape is the
+   extrusion — it reads as thickness — and the softer one below it is the cast shadow. Two
+   drop-shadows rather than an SVG filter primitive: this composites on the existing paint
+   instead of re-rasterising the glyph, which matters because these sit on every quest row. */
+@utility glyph-3d {
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.6)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.45));
+}
+
 /* Glowing display caps (§5). Two shadows: a tight one for legibility against the dark
    background, a wide faint one for the bloom. */
 @utility text-glow {
