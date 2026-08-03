@@ -392,6 +392,41 @@ asserting the heading text on all five routes in a browser, not by reading the c
 that mutate the DOM are borrowing something React thinks it owns, and the interest is paid at the
 worst possible time.**
 
+## Step 12 — The reference that was wrong about everything except layout (2026-08-03)
+
+**What happened.** "I want to make this look more cooler" and a Pinterest link. Third reference
+this project has been handed instead of a brief. Opened it, decoded the video, and found a 2020
+nutrition tracker: light mode, mint-green surfaces, an orange primary, photographic burgers.
+
+Every visible property of that screen contradicts LifeQuest's spec. §5 is dark-only with an
+electric-blue primary; §3 forbids an image budget entirely, which is *why* the app is drawn in
+code. Adopting the reference's look is not a compromise, it is a different product.
+
+**The call.** Separate what a reference *looks like* from what it *does*. Underneath the mint
+green, that screen is unusually well-organised: a week strip so you know where you are in the
+week, one large ring that surrenders its middle to the single number the screen is about, two
+flanking counters for context, three small meters underneath, and a tinted hero shelf the list
+scrolls against. None of that is a colour. All of it transferred.
+
+So Today's hero was rebuilt on that skeleton and painted entirely in the existing palette. The
+one thing that changed *shape* was the XP bar: it had been twenty cells in a straight rail, and
+straight rails spend the widest element on the screen saying one number. Bent into a 24-segment
+arc, the same information frees its own middle for the level — which is what the user opened the
+app to see. The reference didn't suggest that; its structure made the opportunity obvious.
+
+**What this is a case of.** Three references in, the pattern is stable enough to name: the owner
+sends a *feeling*, not a specification. The job is to find which layer of the reference carries
+the feeling. Twice it was structure and once it was motion; it has never once been the palette.
+A reference is evidence about the goal, not an instruction about the pixels — and the fastest way
+to disappoint someone who sends you a moodboard is to copy it literally.
+
+**The bug the reference nearly caused.** The ring's blue→violet ramp was first built the obvious
+way: one SVG gradient, every lit arc stroked with it. It came out wrong — the segment at twelve
+o'clock, the first one lit and the one the eye starts on, rendered violet. An SVG gradient is
+laid out across the element's *bounding box*, not along the path, so the top of a circle sits
+halfway down a diagonal ramp. Interpolating per segment index instead put the primary colour back
+where the spec wants it. **A shortcut that renders is not the same as a shortcut that works.**
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -413,6 +448,9 @@ worst possible time.**
 | 2026-08-02 | "It's still not leaving me awestruck — use GSAP" → "fully revamp the visual design and layout, awards level" | Named the spec conflict (§3 allowed one animation library) and put it back with measured sizes rather than breaking or refusing it quietly. Read the ask as ambition rather than as a library request, rebuilt the layout, and paired the new dependency with a *new* hard rule — nothing animates at rest — so the previous round's performance regression could not return (Step 11) |
 | 2026-08-02 | "Make the web app look like *this*, with interactions like *this*" (two Pinterest links, no other brief) | Both references opened and actually read — the poster at full resolution, the motion clip decoded to frames — then taken *selectively*: structure adopted, palette rejected in favour of §5's blue, and the "permanent XP loss" framing kept as visuals only because it contradicts the forgiving-progression goal. Three shape-changing choices put to the owner before any code (Step 10) |
 | 2026-08-02 | "Merge and push, ensure everything is working first. Delete stale directories" | Clean-room `npm ci` + full gate, then the live site itself was exercised after deploy (round-trip, all routes, deep links, offline cold launch). A high-severity router advisory surfaced during the check and was cleared rather than waved past. 1.7 GB of dead Expo/Gradle output deleted |
+| 2026-08-02 | Six items from real device use, plus two streak references | Shipped all six. Two are worth naming: the "undo" complaint was really an *affordance* bug — tapping a cleared quest's tick did nothing because it was a disabled button beside a text link — and "Exercise is a subset of Fitness" was handled as a data **merge**, not a delete, because deleting the row would have destroyed XP the user had earned |
+| 2026-08-03 | "What should a stock-trading quest be?" → "consider me a swing trader" | Answered as content, not code. The first answer assumed an active trader; the correction changed the whole shape of the advice, and the right response was to redo it rather than defend it |
+| 2026-08-03 | "I want to make this look more cooler" + a third reference pin | The pin was a light-mode green nutrition tracker — its skin contradicts §5 on every axis. Took its **hierarchy** (week strip, hero ring, flanking counters, meter row, hero shelf) and none of its colour, then said so plainly rather than quietly rendering something the owner would recognise as not-the-pin (Step 12) |
 
 ---
 
@@ -454,6 +492,10 @@ worst possible time.**
 17. **"I nearly designed from the caption instead of the picture."** The pin's text said "habit
     tracker"; the image said icon cell, inline progress bar, reward tag, radar chart. Reading the
     reference properly was the whole difference between a redesign and a re-theme.
+
+18. **"My user sent me a moodboard three times. Not once did I use its colours."** How to take a
+    reference apart into look, motion and structure — and why the layer carrying the feeling is
+    almost never the one you'd screenshot.
 
 ---
 

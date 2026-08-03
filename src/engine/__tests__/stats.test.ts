@@ -6,6 +6,7 @@ import {
   scheduledOutcomes,
   skillBreakdown,
   topTasks,
+  weekStrip,
   xpOnDay,
 } from '../stats';
 import type { Completion, Skip, Task } from '../../types';
@@ -194,5 +195,59 @@ describe('rangeSummary', () => {
 
   it('is empty for an empty log', () => {
     expect(rangeSummary([], 7, today)).toMatchObject({ completions: 0, xp: 0, activeDays: 0 });
+  });
+});
+
+describe('weekStrip', () => {
+  // Wed 2026-03-11. Week starting Monday = 03-09 .. 03-15.
+  const wed = new Date(2026, 2, 11);
+
+  it('returns the seven days of the Monday-start week', () => {
+    const week = weekStrip(new Set(), wed);
+    expect(week.map((d) => d.dayKey)).toEqual([
+      '2026-03-09', '2026-03-10', '2026-03-11', '2026-03-12',
+      '2026-03-13', '2026-03-14', '2026-03-15',
+    ]);
+    expect(week.map((d) => d.weekday)).toEqual([1, 2, 3, 4, 5, 6, 0]);
+    expect(week.map((d) => d.dayOfMonth)).toEqual([9, 10, 11, 12, 13, 14, 15]);
+  });
+
+  it('marks today, and only today', () => {
+    expect(weekStrip(new Set(), wed).filter((d) => d.isToday).map((d) => d.dayKey)).toEqual([
+      '2026-03-11',
+    ]);
+  });
+
+  it('separates future days from missed ones', () => {
+    const week = weekStrip(new Set(), wed);
+    expect(week.filter((d) => d.isFuture).map((d) => d.dayOfMonth)).toEqual([12, 13, 14, 15]);
+    // Today is not future, so a day with nothing logged yet is still "not future".
+    expect(week[2].isFuture).toBe(false);
+  });
+
+  it('flags the days that had a completion', () => {
+    const week = weekStrip(new Set(['2026-03-09', '2026-03-11', '2026-04-01']), wed);
+    expect(week.filter((d) => d.active).map((d) => d.dayOfMonth)).toEqual([9, 11]);
+  });
+
+  it('handles Sunday, where a Monday-start week runs backwards six days', () => {
+    const sun = new Date(2026, 2, 15);
+    const week = weekStrip(new Set(), sun);
+    expect(week[0].dayKey).toBe('2026-03-09');
+    expect(week[6].isToday).toBe(true);
+    expect(week.some((d) => d.isFuture)).toBe(false);
+  });
+
+  it('honours a Sunday-start week', () => {
+    const week = weekStrip(new Set(), wed, 0);
+    expect(week[0].dayKey).toBe('2026-03-08');
+    expect(week[0].weekday).toBe(0);
+  });
+
+  it('crosses a month boundary without renumbering', () => {
+    // Wed 2026-04-01 -> week starts Mon 2026-03-30.
+    const week = weekStrip(new Set(), new Date(2026, 3, 1));
+    expect(week.map((d) => d.dayOfMonth)).toEqual([30, 31, 1, 2, 3, 4, 5]);
+    expect(week[0].dayKey).toBe('2026-03-30');
   });
 });

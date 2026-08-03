@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import { SystemPanel } from '../components/system/SystemPanel';
 import { RuneDivider } from '../components/system/RuneDivider';
@@ -25,9 +25,17 @@ export default function Calendar() {
   const tasks = useTaskStore((s) => s.tasks);
   const todayKey = dayKeyFor(new Date());
 
-  const [year, setYear] = useState(() => new Date().getFullYear());
-  const [month, setMonth] = useState(() => new Date().getMonth());
-  const [selected, setSelected] = useState(todayKey);
+  // `?day=YYYY-MM-DD` lets another screen open the calendar on a specific date — the week
+  // strip on Today uses it. Read once at mount: this route is lazy, so arriving here always
+  // mounts it fresh, and treating the param as live state would fight the day buttons below.
+  const [params] = useSearchParams();
+  const requested = params.get('day');
+  const initial = requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : todayKey;
+  const initialDate = dateFromDayKey(initial);
+
+  const [year, setYear] = useState(() => initialDate.getFullYear());
+  const [month, setMonth] = useState(() => initialDate.getMonth());
+  const [selected, setSelected] = useState(initial);
   const [dayCompletions, setDayCompletions] = useState<Completion[]>([]);
   const [logOpen, setLogOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);

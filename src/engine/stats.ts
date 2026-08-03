@@ -183,3 +183,44 @@ export function rangeSummary(
     activeRate: days === null ? null : active.size / days,
   };
 }
+
+export interface WeekDay {
+  dayKey: string;
+  /** 0-6, Sun-Sat, matching Date.getDay(). */
+  weekday: number;
+  dayOfMonth: number;
+  /** Had at least one completion. */
+  active: boolean;
+  isToday: boolean;
+  /** Later in the current week than today — nothing has been logged there yet, and a blank
+   *  slot must not read the same as a day that was missed. */
+  isFuture: boolean;
+}
+
+// The seven days of the week containing `today`, with each day's activity flagged.
+// `weekStartsOn` uses Date.getDay() numbering (0 = Sunday, 1 = Monday).
+//
+// This is date arithmetic, not display logic, so it lives here rather than in the component
+// (§8) — the off-by-one at a week boundary is exactly the kind of thing that should be a
+// failing unit test rather than a screenshot someone squints at.
+export function weekStrip(
+  activeDays: ReadonlySet<string>,
+  today: Date,
+  weekStartsOn = 1
+): WeekDay[] {
+  const todayKey = dayKeyFor(today);
+  const offset = (today.getDay() - weekStartsOn + 7) % 7;
+  const start = addDays(today, -offset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(start, i);
+    const dayKey = dayKeyFor(date);
+    return {
+      dayKey,
+      weekday: date.getDay(),
+      dayOfMonth: date.getDate(),
+      active: activeDays.has(dayKey),
+      isToday: dayKey === todayKey,
+      isFuture: dayKey > todayKey,
+    };
+  });
+}

@@ -17,6 +17,9 @@ export const colors = {
   accentSecondary: '#8B5CF6',
   textPrimary: '#E6E9F2',
   textSecondary: '#8A93A8',
+  /** Gold. Shares the Epic tier's value on purpose: streaks and Epic quests are the two
+   *  "rarest thing on the screen" signals, and they should read as the same signal. */
+  epic: '#F5B942',
 } as const;
 
 // Rarity/difficulty accent ramp (Trivial→Epic), echoing RPG item-rarity coloring

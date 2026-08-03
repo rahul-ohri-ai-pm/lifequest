@@ -1,21 +1,18 @@
-import { useRef } from 'react';
-import { SystemPanel } from './system/SystemPanel';
-import { Sigil } from './system/Sigil';
-import { StreakIcon } from './icons';
+import { SegmentRing } from './system/SegmentRing';
+import { WeekStrip } from './system/WeekStrip';
+import { BoltIcon, StreakIcon } from './icons';
 import { useStreakStore } from '../store/useStreakStore';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { levelProgress } from '../engine/xp';
-import { gsap, useGsap } from '../lib/gsap';
+import { weekStrip } from '../engine/stats';
 import { colors } from '../constants/theme';
 
 // The status window: who you are, at a glance, before anything else on the screen.
 //
-// The XP bar is deliberately *segmented* rather than a smooth fill. A continuous bar reads as
-// a loading indicator; twenty discrete cells read as a game resource, and they give the
-// completion effect something to land on — cells light up one after another instead of a
-// width tweening, which is both more legible at a glance and far more satisfying.
-
-const CELLS = 20;
+// Structure is lifted from the reference screen — week strip, one big ring with the headline
+// numeral inside it, two flanking counters, three small labelled meters — and nothing else is.
+// The reference is a light-mode green nutrition tracker; §5 is dark-only with an electric-blue
+// primary, so the layout was adopted and the skin was not (the same call recorded in D26).
 
 interface Props {
   doneCount: number;
@@ -23,121 +20,121 @@ interface Props {
   xpToday: number;
 }
 
+/** One of the three meters under the ring: a hairline bar, a caption, and a value. */
+function Meter({
+  label,
+  value,
+  fill,
+  color,
+}: {
+  label: string;
+  value: string;
+  fill: number;
+  color: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <span className="h-[3px] w-full max-w-16 bg-edge/60">
+        <span
+          className="block h-full"
+          style={{
+            width: `${Math.round(Math.min(Math.max(fill, 0), 1) * 100)}%`,
+            backgroundColor: color,
+            boxShadow: `0 0 6px ${color}`,
+          }}
+        />
+      </span>
+      <span className="font-display text-[9px] uppercase tracking-[0.2em] text-muted">{label}</span>
+      <span className="font-display text-sm leading-none tabular-nums text-fg">{value}</span>
+    </div>
+  );
+}
+
 export function StatusHero({ doneCount, totalCount, xpToday }: Props) {
   const character = useCharacterStore((s) => s.character);
   const global = useStreakStore((s) => s.global);
-  const root = useRef<HTMLDivElement | null>(null);
-  const prevFilled = useRef<number | null>(null);
+  const activeDays = useStreakStore((s) => s.activeDays);
 
   const p = character ? levelProgress(character.totalXp) : null;
-  const filled = p ? Math.round(Math.min(p.progress, 1) * CELLS) : 0;
-
-  useGsap(
-    root,
-    () => {
-      const cells = gsap.utils.toArray<HTMLElement>('[data-cell]');
-      const from = prevFilled.current;
-      prevFilled.current = filled;
-
-      // GSAP warns on an empty target list, and a brand-new character has zero filled cells
-      // — so every first boot logged "GSAP target not found" to the console.
-      if (!filled) return;
-
-      if (from === null) {
-        // First paint: sweep the whole rail in so the hero introduces itself.
-        gsap.fromTo(
-          cells.slice(0, filled),
-          { opacity: 0, scaleY: 0.2 },
-          { opacity: 1, scaleY: 1, duration: 0.3, stagger: 0.025, ease: 'power2.out' }
-        );
-        return;
-      }
-      if (filled > from) {
-        // XP gained: only the newly-earned cells fire, with a brief overshoot glow.
-        const gained = cells.slice(from, filled);
-        if (!gained.length) return;
-        gsap
-          .timeline()
-          .fromTo(gained, { opacity: 0, scaleY: 0.3 }, { opacity: 1, scaleY: 1, duration: 0.22, stagger: 0.04 })
-          .to(gained, { boxShadow: `0 0 12px ${colors.accent}`, duration: 0.16, stagger: 0.04 }, '<')
-          .to(gained, { boxShadow: `0 0 4px ${colors.accent}`, duration: 0.4 }, '>-0.1');
-      }
-    },
-    [filled]
-  );
-
   if (!character || !p) return null;
 
+  const today = new Date();
+  const streak = global?.state.current ?? 0;
+  const longest = global?.longest ?? 0;
+  const weekActive = weekStrip(activeDays, today).filter((d) => d.active).length;
+  const toNext = Math.max(p.nextLevelXp - character.totalXp, 0);
+
   return (
-    <div ref={root} className="px-4 pt-2">
-      <SystemPanel glow innerClassName="flex flex-col gap-3 px-4 py-4">
-        <div className="flex items-center gap-4">
-          <Sigil level={p.level} size={72} />
+    // Gradient-edge sandwich (as in SystemPanel), but only the bottom padding is exposed —
+    // so the ramp runs *downwards* into the one hairline that is actually visible.
+    <div className="shelf bg-linear-to-b from-transparent via-accent/25 to-accent/70 pb-px">
+      <div className="shelf bg-linear-to-b from-panel-raised via-panel to-bg px-4 pt-3 pb-5">
+        <WeekStrip activeDays={activeDays} today={today} />
 
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="font-display text-[10px] uppercase tracking-[0.3em] text-muted">Level</span>
-            <span className="font-display text-4xl font-bold leading-none text-fg text-glow">{p.level}</span>
-          </div>
-
-          <div className="flex flex-col items-end gap-0.5 text-right">
-            <span className="font-display text-[10px] uppercase tracking-[0.24em] text-muted">Today</span>
-            <span className="font-display text-2xl leading-none text-accent" data-xp-target>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          {/* Left flank: what today has been worth so far. Also where the completion burst
+              flies to, so the number it lands on is the number it just changed. */}
+          <div className="flex w-[68px] flex-col items-center gap-1" data-xp-target>
+            <BoltIcon className="text-accent" size={15} />
+            <span className="font-display text-2xl leading-none tabular-nums text-fg">
               +{xpToday}
             </span>
-            <span className="font-display text-[10px] uppercase tracking-[0.18em] text-muted">
-              {doneCount}/{totalCount} cleared
+            <span className="font-display text-[9px] uppercase tracking-[0.18em] text-muted">
+              XP today
             </span>
           </div>
-        </div>
 
-        {/* The global active-day streak (§7). Shown even at zero, because "0 days" is the
-            honest state and hiding it would make a broken streak vanish rather than register.
-            `longest` is the record, which never decreases. */}
-        {global && (
-          <div className="flex items-center gap-2 border-t border-edge/60 pt-2.5">
-            <StreakIcon
-              className={global.state.current > 0 ? 'text-epic' : 'text-muted'}
-              size={16}
-            />
+          <SegmentRing progress={p.progress} size={164} strokeWidth={10}>
+            <span className="font-display text-[10px] uppercase tracking-[0.32em] text-muted">
+              Level
+            </span>
+            <span className="font-display text-[3.25rem] font-bold leading-[0.95] text-fg text-glow tabular-nums">
+              {p.level}
+            </span>
+            <span className="font-display text-[10px] uppercase tracking-[0.12em] text-muted">
+              {toNext} xp to lv {p.level + 1}
+            </span>
+          </SegmentRing>
+
+          {/* Right flank: the global active-day streak (§7). Shown at zero too — hiding it
+              would make a break vanish rather than register, which §7 exists to prevent. */}
+          <div className="flex w-[68px] flex-col items-center gap-1">
+            <StreakIcon className={streak > 0 ? 'text-epic' : 'text-muted'} size={15} />
             <span
-              className={`font-display text-lg leading-none tabular-nums ${
-                global.state.current > 0 ? 'text-epic' : 'text-muted'
+              className={`font-display text-2xl leading-none tabular-nums ${
+                streak > 0 ? 'text-epic' : 'text-muted'
               }`}
-              style={global.state.current > 0 ? { textShadow: '0 0 10px rgb(245 185 66 / 0.5)' } : undefined}
+              style={streak > 0 ? { textShadow: '0 0 10px rgb(245 185 66 / 0.5)' } : undefined}
             >
-              {global.state.current}
+              {streak}
             </span>
-            <span className="font-display text-[10px] uppercase tracking-[0.2em] text-muted">
-              day streak
-            </span>
-            <span className="ml-auto font-display text-[10px] uppercase tracking-[0.16em] text-muted">
-              best {global.longest}
-              {global.resetCount > 0 && ` · ${global.resetCount} reset${global.resetCount > 1 ? 's' : ''}`}
+            <span className="font-display text-[9px] uppercase tracking-[0.18em] text-muted">
+              Day streak
             </span>
           </div>
-        )}
-
-        {/* Segmented XP rail */}
-        <div className="flex items-center gap-2">
-          <div className="flex flex-1 gap-[3px]">
-            {Array.from({ length: CELLS }, (_, i) => (
-              <span
-                key={i}
-                data-cell
-                className="h-2.5 flex-1 origin-bottom"
-                style={
-                  i < filled
-                    ? { backgroundColor: colors.accent, boxShadow: `0 0 4px ${colors.accent}` }
-                    : { backgroundColor: colors.panelBorder, opacity: 0.5 }
-                }
-              />
-            ))}
-          </div>
-          <span className="shrink-0 font-display text-[11px] tabular-nums text-muted">
-            {character.totalXp}/{p.nextLevelXp}
-          </span>
         </div>
-      </SystemPanel>
+
+        <div className="mt-4 grid grid-cols-3 gap-3 border-t border-edge/50 pt-3">
+          <Meter
+            label="Cleared"
+            value={`${doneCount}/${totalCount}`}
+            fill={totalCount ? doneCount / totalCount : 0}
+            color={colors.accent}
+          />
+          <Meter
+            label="Week"
+            value={`${weekActive}/7`}
+            fill={weekActive / 7}
+            color={colors.accentSecondary}
+          />
+          <Meter
+            label="Best"
+            value={`${longest}d`}
+            fill={longest ? streak / longest : 0}
+            color={colors.epic}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -140,6 +140,22 @@
   );
 }
 
+/* The status hero sits on a full-bleed "shelf" that the quest log then scrolls against — the
+   reference screen's strongest structural idea. Its bottom corners are chamfered rather than
+   rounded, because a 40px radius would be the one soft shape in a UI built out of cut corners.
+   Applied to both halves of the gradient-edge sandwich so the hairline follows the cut. */
+@utility shelf {
+  --shelf: 34px;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--shelf)),
+    calc(100% - var(--shelf)) 100%,
+    var(--shelf) 100%,
+    0 calc(100% - var(--shelf))
+  );
+}
+
 /* Glowing display caps (§5). Two shadows: a tight one for legibility against the dark
    background, a wide faint one for the bloom. */
 @utility text-glow {

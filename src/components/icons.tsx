@@ -226,6 +226,15 @@ export function SkipIcon({ className, size = 15 }: IconProps) {
   );
 }
 
+// XP mark — the counterpart to StreakIcon in the status hero's two flanking counters.
+export function BoltIcon({ className, size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M13.5 2.5L5 13.5h6L10.5 21.5 19 10.5h-6l.5-8z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className, size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>

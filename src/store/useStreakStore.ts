@@ -25,6 +25,10 @@ interface StreakStoreState {
   /** Keyed by task id, plus `global` for the active-day streak. */
   byTask: Record<string, StreakEntry>;
   global: StreakEntry | null;
+  /** Every local day with at least one completion. Derived here because the hydrate pass
+   *  already builds it — the alternative is a second full read of `completions` for the
+   *  week strip, which is the same work twice. */
+  activeDays: ReadonlySet<string>;
   hydrate(tasks: Task[], now: Date): Promise<void>;
 }
 
@@ -33,6 +37,7 @@ const GLOBAL = 'global';
 export const useStreakStore = create<StreakStoreState>((set) => ({
   byTask: {},
   global: null,
+  activeDays: new Set<string>(),
 
   hydrate: async (tasks, now) => {
     const [completions, stored] = await Promise.all([getAllCompletions(), streakQueries.getStreaks()]);
@@ -115,7 +120,7 @@ export const useStreakStore = create<StreakStoreState>((set) => ({
       global.resetCount = persistedGlobal.resetCount;
     }
 
-    set({ byTask, global });
+    set({ byTask, global, activeDays });
   },
 }));
 
