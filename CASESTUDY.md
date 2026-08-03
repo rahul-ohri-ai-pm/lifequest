@@ -451,6 +451,8 @@ where the spec wants it. **A shortcut that renders is not the same as a shortcut
 | 2026-08-02 | Six items from real device use, plus two streak references | Shipped all six. Two are worth naming: the "undo" complaint was really an *affordance* bug — tapping a cleared quest's tick did nothing because it was a disabled button beside a text link — and "Exercise is a subset of Fitness" was handled as a data **merge**, not a delete, because deleting the row would have destroyed XP the user had earned |
 | 2026-08-03 | "What should a stock-trading quest be?" → "consider me a swing trader" | Answered as content, not code. The first answer assumed an active trader; the correction changed the whole shape of the advice, and the right response was to redo it rather than defend it |
 | 2026-08-03 | "I want to make this look more cooler" + a third reference pin | The pin was a light-mode green nutrition tracker — its skin contradicts §5 on every axis. Took its **hierarchy** (week strip, hero ring, flanking counters, meter row, hero shelf) and none of its colour, then said so plainly rather than quietly rendering something the owner would recognise as not-the-pin (Step 12) |
+| 2026-08-03 | "Improve the profile page, add icons, use above reference for the kind of icons I want" | The reference's marks are 3D renders, which the spec forbids. Took the *treatment* — large, framed, own-colour, with volume — and said so rather than quietly shipping something the owner would recognise as not-the-pin. Also found the real defect on that screen: the skill list ranked by **level**, which is `1` for every skill for months, so the ranking column printed the same thing seven times |
+| 2026-08-03 | "Yes, I want 3D icons... unless you have a better suggestion?" → "keep vector for now" | Three objections were raised; measuring them **withdrew one as wrong** (file size: ~11.6 KB for all eight, not the burden claimed). The remaining one was a matter of taste, so it was settled with a rendered side-by-side on the real background instead of an argument — the clash between a red apple and a green Diet bar is a thing you see, not a thing you explain. The owner chose vector. **An opinion you can screenshot beats an opinion you can only assert** |
 
 ---
 
@@ -496,6 +498,11 @@ where the spec wants it. **A shortcut that renders is not the same as a shortcut
 18. **"My user sent me a moodboard three times. Not once did I use its colours."** How to take a
     reference apart into look, motion and structure — and why the layer carrying the feeling is
     almost never the one you'd screenshot.
+
+19. **"I talked my user out of a feature using a number I made up."** I objected to an asset on
+    file size, then measured it: 11.6 KB. The two real objections survived — but I nearly won
+    the argument on the fake one. Measure your own objections before you spend someone's trust
+    on them.
 
 ---
 
