@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, useLocation } from 'react-router';
 import { SystemHeading } from './components/system/SystemHeading';
 import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { BootSequence } from './components/system/BootSequence';
+import { StreakMoment } from './components/system/StreakMoment';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
 import { ensurePersistentStorage } from './db/storage';
@@ -235,6 +236,7 @@ export function App() {
       {/* Lives at the shell level so a level-up lands wherever the user happens to be —
           completing a quest from Today and from a task's detail screen both count. */}
       <LevelUpOverlay />
+      <StreakMoment />
 
       <div className="relative mx-auto flex h-full w-full max-w-lg flex-col">
         <header className="relative shrink-0 px-4 pb-2 pt-3">

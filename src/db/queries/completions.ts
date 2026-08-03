@@ -91,11 +91,22 @@ export async function logCompletion(
   taskId: string,
   xpAwarded: number,
   progressCount: number | null,
-  now: Date
+  now: Date,
+  /**
+   * When the thing was actually done. Defaults to `now`; passed explicitly only by calendar
+   * backfill ("I did this on Tuesday and forgot to log it").
+   *
+   * Deliberately separate from `created_at`, which always records when the row was *written*.
+   * Every stat, the streak engine and the calendar read `completed_at`, so backfilling puts
+   * the work on the right day, while `created_at` still tells the truth about when it was
+   * entered — the two answer different questions and collapsing them loses the second.
+   */
+  completedAt: Date = now
 ): Promise<CompletionResult> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const iso = now.toISOString();
+  const completedIso = completedAt.toISOString();
   let completion: Completion | undefined;
   let character: Character | undefined;
 
@@ -105,7 +116,7 @@ export async function logCompletion(
        VALUES (?, ?, ?, ?, ?, ?)`,
       id,
       taskId,
-      iso,
+      completedIso,
       progressCount,
       xpAwarded,
       iso

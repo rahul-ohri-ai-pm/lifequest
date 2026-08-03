@@ -7,6 +7,9 @@ import { monthGrid } from '../engine/calendar';
 import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/time';
 import { getCompletionsBetween } from '../db/queries/completions';
 import { useTaskStore } from '../store/useTaskStore';
+import { useStreakStore } from '../store/useStreakStore';
+import { CategoryIcon, CheckIcon } from '../components/icons';
+import { useSkillStore } from '../store/useSkillStore';
 import { cn } from '../lib/utils';
 import { difficultyColors } from '../constants/theme';
 import type { Completion, Task } from '../types';
@@ -26,6 +29,11 @@ export default function Calendar() {
   const [month, setMonth] = useState(() => new Date().getMonth());
   const [selected, setSelected] = useState(todayKey);
   const [dayCompletions, setDayCompletions] = useState<Completion[]>([]);
+  const [logOpen, setLogOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const backfillCompletion = useTaskStore((s) => s.backfillCompletion);
+  const skills = useSkillStore((s) => s.skills);
+  const taskSkills = useSkillStore((s) => s.taskSkills);
 
   const grid = useMemo(() => monthGrid(year, month), [year, month]);
 
@@ -44,6 +52,7 @@ export default function Calendar() {
   // of every month, past and future, so the marker carried no information at all.
   // Completion is real history; a schedule is not.
   const [monthCompletionDays, setMonthCompletionDays] = useState<Set<string>>(new Set());
+  const [monthRevision, setMonthRevision] = useState(0);
 
   useEffect(() => {
     const first = grid[0]?.[0];
@@ -60,7 +69,7 @@ export default function Calendar() {
     return () => {
       cancelled = true;
     };
-  }, [grid]);
+  }, [grid, monthRevision]);
 
   // A future/today square with work planned gets a hollow marker, so "planned" and "done"
   // are visually distinct rather than the same blue dot.
@@ -75,10 +84,34 @@ export default function Calendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grid, tasks, todayKey]);
 
+  // Bumped after a backfill so the day's list and the month dots both refresh.
+  const [revision, setRevision] = useState(0);
+
   useEffect(() => {
     const { startIso, endIso } = dayWindow(dateFromDayKey(selected));
     void getCompletionsBetween(startIso, endIso).then(setDayCompletions);
-  }, [selected]);
+  }, [selected, revision]);
+
+  const categoryOf = (taskId: string): string | null => {
+    const first = taskSkills[taskId]?.[0];
+    return first ? (skills.find((s) => s.id === first)?.name ?? null) : null;
+  };
+
+  const logOnSelectedDay = async (task: Task) => {
+    setBusy(task.id);
+    try {
+      await backfillCompletion(task, dateFromDayKey(selected), new Date());
+      // Streak state is derived from the completions log, so backfilling can *repair* a break
+      // — but only if it is recomputed. Without this the repaired streak would not appear
+      // until the next cold start.
+      await useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
+      setRevision((r) => r + 1);
+      setMonthRevision((r) => r + 1);
+      setLogOpen(false);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const prevMonth = () => {
     if (month === 0) {
@@ -128,7 +161,13 @@ export default function Calendar() {
               <button
                 key={cell.dayKey}
                 type="button"
-                onClick={() => setSelected(cell.dayKey)}
+                onClick={() => {
+                  // Closing here rather than in an effect on `selected`: leaving the picker
+                  // open across a day change would make it ambiguous which day the next tap
+                  // logs against, and that is the one mistake that writes bad history.
+                  setSelected(cell.dayKey);
+                  setLogOpen(false);
+                }}
                 className={cn(
                   'notch [--notch:4px] relative m-px grid aspect-[1.1] place-items-center border border-transparent font-display text-[13px] text-fg transition-colors',
                   isSelected && 'border-accent bg-panel-raised',
@@ -161,6 +200,57 @@ export default function Calendar() {
         <p className="mb-2 text-center text-[13px] text-muted">{dayCompletions.length} completed</p>
       )}
 
+      {/* Backfill. Any past day is fair game (owner's call): the point is "I did this on
+          Tuesday and forgot to log it", and a limit would just make the honest case fiddly.
+          Today is excluded because Today's own screen is the place to complete today. */}
+      {selected <= todayKey && (
+        <div className="mb-3">
+          {!logOpen ? (
+            <button
+              type="button"
+              onClick={() => setLogOpen(true)}
+              className="notch [--notch:6px] w-full border border-edge py-2 font-display text-[12px] uppercase tracking-[0.16em] text-accent transition-colors hover:border-accent"
+            >
+              + Log a quest on this day
+            </button>
+          ) : (
+            <SystemPanel brackets={false} innerClassName="flex flex-col gap-1 px-3 py-3">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="font-display text-[10px] uppercase tracking-[0.2em] text-muted">
+                  Log as completed on {selected === todayKey ? 'today' : selected}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLogOpen(false)}
+                  className="font-display text-[10px] uppercase tracking-[0.16em] text-muted hover:text-fg"
+                >
+                  Cancel
+                </button>
+              </div>
+              {tasks.length === 0 ? (
+                <p className="text-[13px] text-muted">No active quests to log.</p>
+              ) : (
+                tasks.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void logOnSelectedDay(t)}
+                    className="notch [--notch:5px] flex items-center gap-2 border border-edge px-2.5 py-2 text-left transition-colors hover:border-accent disabled:opacity-40"
+                  >
+                    <CategoryIcon name={categoryOf(t.id)} size={16} className="shrink-0 text-muted" />
+                    <span className="flex-1 truncate text-[14px] text-fg">{t.title}</span>
+                    <span className="shrink-0 font-display text-[11px] uppercase tracking-wider text-accent">
+                      {busy === t.id ? '…' : 'Log'}
+                    </span>
+                  </button>
+                ))
+              )}
+            </SystemPanel>
+          )}
+        </div>
+      )}
+
       {selectedTasks.length === 0 ? (
         <p className="text-[13px] text-muted">
           {dayCompletions.length
@@ -181,7 +271,7 @@ export default function Calendar() {
                   style={{ backgroundColor: difficultyColors[item.difficulty] }}
                 />
                 <span className="flex-1 truncate text-sm text-fg">{item.title}</span>
-                {completedIds.has(item.id) && <span className="font-bold text-accent">✓</span>}
+                {completedIds.has(item.id) && <CheckIcon size={15} className="shrink-0 text-accent" />}
               </button>
             </li>
           ))}

@@ -18,6 +18,8 @@ interface TaskState {
   addTask(input: NewTask, now: Date): Promise<Task>;
   updateTask(id: string, patch: TaskPatch, now: Date): Promise<void>;
   completeTask(task: Task, now: Date): Promise<Completion>;
+  /** Log a quest as completed on a past day (calendar backfill). */
+  backfillCompletion(task: Task, day: Date, now: Date): Promise<Completion>;
   logCountedProgress(task: Task, amount: number, now: Date): Promise<Completion>;
   undoCompletion(completionId: string, now: Date): Promise<void>;
   skipTask(task: Task, now: Date): Promise<void>;
@@ -57,6 +59,31 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const xp = xpForDifficulty(task.difficulty);
     const { completion, character } = await completionQueries.logCompletion(task.id, xp, null, now);
     set({ completionsToday: [...get().completionsToday, completion] });
+    useCharacterStore.getState().setFromPersisted(character);
+    void useSkillStore.getState().refreshSkills();
+    return completion;
+  },
+
+  // Calendar backfill. Same write path and the same XP as a live completion — the only
+  // difference is `completed_at`, which lands on the chosen day so stats, the calendar and the
+  // streak engine all place the work where it actually happened (and a break can be repaired
+  // retroactively). Midday is used rather than midnight so a daylight-saving shift can never
+  // push the row onto the neighbouring day.
+  backfillCompletion: async (task, day, now) => {
+    const xp = xpForDifficulty(task.difficulty);
+    const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0);
+    const { completion, character } = await completionQueries.logCompletion(
+      task.id,
+      xp,
+      null,
+      now,
+      at
+    );
+    // `completionsToday` is exactly what its name says. A backfilled row belongs to another
+    // day, so adding it here would make Today claim work the user did last Tuesday.
+    if (dayKeyFor(at) === dayKeyFor(now)) {
+      set({ completionsToday: [...get().completionsToday, completion] });
+    }
     useCharacterStore.getState().setFromPersisted(character);
     void useSkillStore.getState().refreshSkills();
     return completion;

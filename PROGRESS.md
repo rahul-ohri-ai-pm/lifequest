@@ -150,7 +150,16 @@ old build against itself — GOTCHAS 30 again, third time this session.)
 
 | P2 — Skill dashboard | ✅ Done (2026-08-02) | Stats rebuilt as a HUD dashboard with the §10 **Day/Week/Month/All** filter governing every panel (a dashboard whose panels disagree about "this week" is worse than none). KPI tiles → activity column chart → per-skill breakdown (level/XP/completions) → follow-through meter → top quests. New `rangeSummary` engine aggregation with 6 tests (**89 total**). GSAP throughout: panels power on in sequence, bars grow from the baseline, XP figures count up, and changing the range replays the lot. Built against the `dataviz` skill, which produced a real finding — see DECISIONS D31: the eight skill colours **fail** CVD validation (worst pair ΔE 2.5), no eight-hue set can pass, so bars are single-hue and colour only ever appears beside a name |
 
+| P3 — Owner feedback round | ✅ Done (2026-08-02) | Six items from real use. **(1)** Tapping the tick of a cleared quest now undoes it — it was a *disabled* button beside a text link, so the obvious gesture did nothing; it is a real `aria-checked` toggle whose label flips with its state, and the glyph becomes an undo arrow on hover. **(2)** Undo/Skip are icon buttons. **(3)** Per-category inline SVG icons replace the generic type mark on the row — the type was already spelled out in the meta line, while the category is what you actually scan for. **(4)** Exercise merged into Fitness (migration `0004`, DECISIONS D33) — merged, not deleted, so the XP survives. **(5)** Calendar backfill: pick any past day and log a quest on it, with full XP and a streak recompute that can repair a break (D32). **(6)** Streak-on-undo was already correct — verified 0→1→0 before touching it, since the resync wired in P1 covers it. Plus a streak takeover from the owner's references: flame, count tick, Su–Sa week strip, in system-window styling rather than the reference's cartoon look |
+
 **Still open in Phase 2**: badge engine + gallery.
+
+**Perf note worth keeping.** The harness measured tap-to-paint at 98.7ms after this round, which
+looked like a regression. It was not: the tap being measured happened to be the one that fires
+the once-a-day streak takeover, so it timed a full-screen celebration mounting rather than a
+routine interaction. With the takeover suppressed the figure is **28.7ms**, unchanged. The
+lesson is that a perf harness has to control for one-shot moments or it will report them as
+latency.
 
 **A note on the range test.** The obvious browser assertion — "KPIs change when you change the
 range" — is useless with same-day seed data, because Day/Week/Month/All *all* legitimately
