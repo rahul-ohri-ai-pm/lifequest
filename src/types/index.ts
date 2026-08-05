@@ -48,10 +48,13 @@ export interface Character {
 export interface SkillDef {
   id: string;
   name: string;
+  /** Key into the icon library in `components/categoryIcons`, not a path or a glyph. */
   icon: string | null;
   color: string | null;
   totalXp: number;
   level: number;
+  /** Archived categories keep their XP and their task links but leave every picker. */
+  status: 'active' | 'archived';
   createdAt: string;
 }
 

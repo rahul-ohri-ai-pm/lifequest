@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { BorderBeam } from '../components/ui/border-beam';
 import { NumberTicker } from '../components/ui/number-ticker';
@@ -8,7 +8,17 @@ import { StorageStatus } from '../components/StorageStatus';
 import { SkillRadar } from '../components/system/SkillRadar';
 import { SkillRow } from '../components/system/SkillRow';
 import { Sigil } from '../components/system/Sigil';
-import { BoltIcon, CalendarIcon, CheckIcon, StreakIcon } from '../components/icons';
+import {
+  ArchiveIcon,
+  BoltIcon,
+  CalendarIcon,
+  CheckIcon,
+  EditIcon,
+  PlusIcon,
+  StreakIcon,
+  UndoIcon,
+} from '../components/icons';
+import { CategoryEditor } from '../components/system/CategoryEditor';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { useStreakStore } from '../store/useStreakStore';
@@ -21,6 +31,9 @@ import { colors, text } from '../constants/theme';
 // web says something true about which areas are being neglected.
 //
 // This screen was ~85% empty before — PROGRESS.md carried it as an open design item.
+
+const manageBtn =
+  'grid size-8 shrink-0 place-items-center rounded-full border border-edge text-muted transition-colors hover:border-muted hover:text-fg';
 
 /** One cell of the lifetime-record strip: a glyph, a count, a caption. */
 function Record({
@@ -51,7 +64,33 @@ export default function Profile() {
   const global = useStreakStore((s) => s.global);
 
   // Strongest first, so the stat block leads with what the user has actually built.
-  const ranked = useMemo(() => [...skills].sort((a, b) => b.totalXp - a.totalXp || a.name.localeCompare(b.name)), [skills]);
+  const addSkill = useSkillStore((s) => s.addSkill);
+  const editSkill = useSkillStore((s) => s.editSkill);
+  const removeSkillFn = useSkillStore((s) => s.removeSkill);
+  const restoreSkill = useSkillStore((s) => s.restoreSkill);
+
+  // `null` = closed, `'new'` = the create form, otherwise the id being edited.
+  const [editing, setEditing] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const active = useMemo(() => skills.filter((s) => s.status === 'active'), [skills]);
+  const archived = useMemo(() => skills.filter((s) => s.status === 'archived'), [skills]);
+  const ranked = useMemo(
+    () => [...active].sort((a, b) => b.totalXp - a.totalXp || a.name.localeCompare(b.name)),
+    [active]
+  );
+  const takenNames = (exceptId?: string) =>
+    new Set(skills.filter((s) => s.id !== exceptId).map((s) => s.name.trim().toLowerCase()));
+
+  const onRemove = (id: string, name: string) =>
+    void removeSkillFn(id).then((outcome) =>
+      setNotice(
+        outcome === 'deleted'
+          ? `${name} deleted — it had no XP or quests.`
+          : `${name} archived. Its XP and history are kept.`
+      )
+    );
   // The radar needs a bounded number of axes or the labels collide; six is the reference's
   // hexagon and also about as many as stays readable at phone width.
   const axes = useMemo(
@@ -105,26 +144,132 @@ export default function Profile() {
         </div>
       </SystemPanel>
 
-      <RuneDivider label="Skills" />
+      <RuneDivider label="Categories" />
+
+      {editing === 'new' && (
+        <CategoryEditor
+          taken={takenNames()}
+          onSave={(v) =>
+            addSkill({ name: v.name, color: v.color, icon: v.icon }, new Date()).then(() => {
+              setEditing(null);
+              setNotice(`${v.name} added.`);
+            })
+          }
+          onCancel={() => setEditing(null)}
+        />
+      )}
 
       <SystemPanel brackets={false} innerClassName="flex flex-col gap-3.5 px-4 py-4">
         {ranked.length === 0 ? (
           <p className="text-center text-sm text-muted">No categories yet.</p>
         ) : (
-          ranked.map((skill, i) => {
-            const sp = levelProgress(skill.totalXp);
-            return (
-              <SkillRow
+          ranked.map((skill, i) =>
+            editing === skill.id ? (
+              <CategoryEditor
                 key={skill.id}
-                name={skill.name}
-                color={skill.color}
-                level={sp.level}
-                totalXp={skill.totalXp}
-                progress={skill.totalXp === 0 ? 0 : sp.progress}
-                delay={Math.min(i, 8) * 0.05}
+                skill={skill}
+                taken={takenNames(skill.id)}
+                onSave={(v) =>
+                  editSkill(skill.id, { name: v.name, color: v.color, icon: v.icon }).then(() =>
+                    setEditing(null)
+                  )
+                }
+                onCancel={() => setEditing(null)}
               />
-            );
-          })
+            ) : (
+              <div key={skill.id} className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <SkillRow
+                    name={skill.name}
+                    iconKey={skill.icon}
+                    color={skill.color}
+                    level={levelProgress(skill.totalXp).level}
+                    totalXp={skill.totalXp}
+                    progress={skill.totalXp === 0 ? 0 : levelProgress(skill.totalXp).progress}
+                    delay={Math.min(i, 8) * 0.05}
+                  />
+                </div>
+                {managing && (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      className={manageBtn}
+                      onClick={() => setEditing(skill.id)}
+                      aria-label={`Edit ${skill.name}`}
+                      title="Edit"
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className={manageBtn}
+                      onClick={() => onRemove(skill.id, skill.name)}
+                      aria-label={`Remove ${skill.name}`}
+                      // §4's no-hard-delete rule, one level up: a category with earned XP is
+                      // archived rather than dropped, and the tooltip says which will happen.
+                      title={skill.totalXp > 0 ? 'Archive (keeps XP)' : 'Remove'}
+                    >
+                      <ArchiveIcon />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          )
+        )}
+
+        <div className="flex items-center gap-2 border-t border-edge/60 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              setEditing('new');
+              setNotice(null);
+            }}
+            className="notch [--notch:6px] flex items-center gap-1.5 border border-accent/60 px-3 py-1.5 font-display text-[11px] uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent/15"
+          >
+            <PlusIcon size={13} /> New category
+          </button>
+          <button
+            type="button"
+            onClick={() => setManaging((m) => !m)}
+            aria-pressed={managing}
+            className="ml-auto font-display text-[11px] uppercase tracking-[0.16em] text-muted transition-colors hover:text-fg"
+          >
+            {managing ? 'Done' : 'Manage'}
+          </button>
+        </div>
+
+        {notice && <p className="text-xs text-muted">{notice}</p>}
+
+        {/* Archived categories only appear while managing — they are out of the way by
+            design, but never gone, because their XP is still in the character's total. */}
+        {managing && archived.length > 0 && (
+          <div className="flex flex-col gap-2 border-t border-edge/60 pt-3">
+            <span className={text.panelLabel}>Archived</span>
+            {archived.map((skill) => (
+              <div key={skill.id} className="flex items-center gap-2 opacity-60">
+                <div className="min-w-0 flex-1">
+                  <SkillRow
+                    name={skill.name}
+                    iconKey={skill.icon}
+                    color={skill.color}
+                    level={levelProgress(skill.totalXp).level}
+                    totalXp={skill.totalXp}
+                    progress={0}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className={manageBtn}
+                  onClick={() => void restoreSkill(skill.id)}
+                  aria-label={`Restore ${skill.name}`}
+                  title="Restore"
+                >
+                  <UndoIcon />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </SystemPanel>
 

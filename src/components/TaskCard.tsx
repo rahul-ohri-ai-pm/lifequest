@@ -10,8 +10,8 @@ import {
   StreakIcon,
   TodoIcon,
   UndoIcon,
-  CategoryIcon,
 } from './icons';
+import { CategoryIcon } from './categoryIcons';
 import { cn } from '../lib/utils';
 import { gsap } from '../lib/gsap';
 import { flyXp, igniteRow, ripple } from '../lib/burst';
@@ -34,6 +34,8 @@ export interface Reward {
   /** Skill name when the task is tagged, otherwise `XP`. */
   label: string;
   color: string | null;
+  /** Chosen glyph, when the category has one; the name is the fallback (see categoryIcons). */
+  iconKey?: string | null;
 }
 
 interface Props {
@@ -145,7 +147,7 @@ export function TaskCard({
 
       <div className="grid w-14 shrink-0 place-items-center">
         <CategorySlot color={reward.color} dim={inactive}>
-          {untagged ? <TypeIcon size={22} /> : <CategoryIcon name={reward.label} size={22} />}
+          {untagged ? <TypeIcon size={22} /> : <CategoryIcon iconKey={reward.iconKey} name={reward.label} size={22} />}
         </CategorySlot>
       </div>
 

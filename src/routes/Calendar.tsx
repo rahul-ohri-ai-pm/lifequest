@@ -8,7 +8,8 @@ import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/
 import { getCompletionsBetween } from '../db/queries/completions';
 import { useTaskStore } from '../store/useTaskStore';
 import { useStreakStore } from '../store/useStreakStore';
-import { CategoryIcon, CheckIcon } from '../components/icons';
+import { CheckIcon } from '../components/icons';
+import { CategoryIcon } from '../components/categoryIcons';
 import { useSkillStore } from '../store/useSkillStore';
 import { cn } from '../lib/utils';
 import { difficultyColors } from '../constants/theme';
@@ -100,9 +101,10 @@ export default function Calendar() {
     void getCompletionsBetween(startIso, endIso).then(setDayCompletions);
   }, [selected, revision]);
 
-  const categoryOf = (taskId: string): string | null => {
+  const categoryOf = (taskId: string): { name: string | null; icon: string | null } => {
     const first = taskSkills[taskId]?.[0];
-    return first ? (skills.find((s) => s.id === first)?.name ?? null) : null;
+    const skill = first ? skills.find((s) => s.id === first) : undefined;
+    return { name: skill?.name ?? null, icon: skill?.icon ?? null };
   };
 
   const logOnSelectedDay = async (task: Task) => {
@@ -246,7 +248,12 @@ export default function Calendar() {
                     onClick={() => void logOnSelectedDay(t)}
                     className="notch [--notch:5px] flex items-center gap-2 border border-edge px-2.5 py-2 text-left transition-colors hover:border-accent disabled:opacity-40"
                   >
-                    <CategoryIcon name={categoryOf(t.id)} size={16} className="shrink-0 text-muted" />
+                    <CategoryIcon
+                      iconKey={categoryOf(t.id).icon}
+                      name={categoryOf(t.id).name}
+                      size={16}
+                      className="shrink-0 text-muted"
+                    />
                     <span className="flex-1 truncate text-[14px] text-fg">{t.title}</span>
                     <span className="shrink-0 font-display text-[11px] uppercase tracking-wider text-accent">
                       {busy === t.id ? '…' : 'Log'}

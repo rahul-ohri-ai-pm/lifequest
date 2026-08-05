@@ -4,6 +4,7 @@ import * as m0001 from './0001_init';
 import * as m0002 from './0002_skills';
 import * as m0003 from './0003_streaks';
 import * as m0004 from './0004_merge_exercise';
+import * as m0005 from './0005_skill_status_icons';
 
 interface Migration {
   version: number;
@@ -12,7 +13,7 @@ interface Migration {
 }
 
 // Forward-only, applied in order (§4). Register new migrations here.
-const MIGRATIONS: Migration[] = [m0001, m0002, m0003, m0004];
+const MIGRATIONS: Migration[] = [m0001, m0002, m0003, m0004, m0005];
 
 export async function runMigrations(db: SqlDatabase): Promise<void> {
   await db.execAsync(`

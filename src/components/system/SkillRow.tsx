@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { CategorySlot } from './CategorySlot';
-import { CategoryIcon } from '../icons';
+import { CategoryIcon } from '../categoryIcons';
 import { colors } from '../../constants/theme';
 
 // A skill on the Profile screen.
@@ -13,6 +13,7 @@ import { colors } from '../../constants/theme';
 
 interface Props {
   name: string;
+  iconKey?: string | null;
   color?: string | null;
   level: number;
   totalXp: number;
@@ -22,7 +23,7 @@ interface Props {
   delay?: number;
 }
 
-export function SkillRow({ name, color, level, totalXp, progress, delay = 0 }: Props) {
+export function SkillRow({ name, iconKey, color, level, totalXp, progress, delay = 0 }: Props) {
   const tint = color ?? colors.accent;
   const pct = Math.max(0, Math.min(progress, 1)) * 100;
   const idle = totalXp === 0;
@@ -30,7 +31,7 @@ export function SkillRow({ name, color, level, totalXp, progress, delay = 0 }: P
   return (
     <div className="flex items-center gap-3">
       <CategorySlot color={color} dim={idle} size={38}>
-        <CategoryIcon name={name} size={21} />
+        <CategoryIcon iconKey={iconKey} name={name} size={21} />
       </CategorySlot>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

@@ -39,7 +39,12 @@ export default function Today() {
       // §7: character always banks the full XP, but the tag shows what the *skill* gets —
       // that is the number the user is watching when they tag a task with two categories.
       return first
-        ? { xp: splitSkillXp(xp, tagged.length), label: first.name, color: first.color }
+        ? {
+            xp: splitSkillXp(xp, tagged.length),
+            label: first.name,
+            color: first.color,
+            iconKey: first.icon,
+          }
         : { xp, label: 'XP', color: null };
     };
   }, [skills, taskSkills]);
