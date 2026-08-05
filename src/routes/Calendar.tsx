@@ -7,7 +7,7 @@ import { monthGrid } from '../engine/calendar';
 import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/time';
 import { getCompletionsBetween } from '../db/queries/completions';
 import { useTaskStore } from '../store/useTaskStore';
-import { useStreakStore } from '../store/useStreakStore';
+import { resyncDerived } from '../store/resync';
 import { CheckIcon } from '../components/icons';
 import { CategoryIcon } from '../components/categoryIcons';
 import { useSkillStore } from '../store/useSkillStore';
@@ -111,10 +111,9 @@ export default function Calendar() {
     setBusy(task.id);
     try {
       await backfillCompletion(task, dateFromDayKey(selected), new Date());
-      // Streak state is derived from the completions log, so backfilling can *repair* a break
-      // — but only if it is recomputed. Without this the repaired streak would not appear
-      // until the next cold start.
-      await useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
+      // Derived state is recomputed from the log, so backfilling can *repair* a break — and
+      // can also unlock a badge. Without this neither would appear until the next cold start.
+      await resyncDerived();
       setRevision((r) => r + 1);
       setMonthRevision((r) => r + 1);
       setLogOpen(false);

@@ -6,6 +6,7 @@ import { SectionBar } from '../components/system/SectionBar';
 import { useTaskStore } from '../store/useTaskStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { useStreakStore } from '../store/useStreakStore';
+import { resyncDerived } from '../store/resync';
 import { isScheduledDay } from '../engine/time';
 import { splitSkillXp, xpForDifficulty } from '../engine/xp';
 import { gsap, useGsap } from '../lib/gsap';
@@ -102,10 +103,10 @@ export default function Today() {
     void addTask(input, new Date()).then((task) => {
       if (skillIds.length) return useSkillStore.getState().tagTask(task.id, skillIds);
     });
-  // Streak state is derived from the completions log, so every write to that log has to be
-  // followed by a re-derivation — otherwise the number on screen is stale until the next cold
-  // start. Cheap at this scale (one array pass over ~1.8k rows/year).
-  const resync = () => useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
+  // Streaks and badges are both derived from the completions log, so every write to that log
+  // has to be followed by a re-derivation — otherwise the numbers on screen are stale until the
+  // next cold start. Cheap at this scale (one array pass over ~1.8k rows/year).
+  const resync = () => resyncDerived();
 
   const onComplete = (task: Task) => void completeTask(task, new Date()).then(resync);
   const onSkip = (task: Task) => void skipTask(task, new Date()).then(resync);

@@ -132,7 +132,7 @@ non-essential weight and recorded as such.
 |---|---|
 | Streak engine (tested) | ✅ Done (2026-08-02) — see Phase 2 notes below. Original scoping note kept for the record: Needs migration `0003` (`streaks`, `streak_resets`) + `src/engine/streaks.ts`. Highest-risk math since Phase 1: transitions interact with local-time day keys and DST (D4), with per-habit schedules, and with skip-vs-miss (§7 treats them the same for streaks but they are separate tables). The hard part is **retroactive detection** — miss three days without opening the app and the breaks must still be found and recorded on next launch, so the engine has to derive state from the completions log rather than from "what happened since last time I ran" |
 | Skills migration + tagging + split XP | ✅ Pulled forward into Phase 1.5 (N4 `919b5c7`): `0002` migration, 8 defaults, split XP in the completion transactions, MRU chips |
-| Badge engine + gallery | ⬜ |
+| Badge engine + gallery | ✅ |
 | Skill dashboard | ⬜ — partially covered by the N5 by-category panel; the full per-skill dashboard with day/week/month/all-time filters is still open |
 
 ### Phase 2 progress
@@ -158,7 +158,11 @@ old build against itself — GOTCHAS 30 again, third time this session.)
 
 | P6 — Slots and glyphs given dimension | ✅ Done (2026-08-03) | Owner: *"I want 3D icons... unless you have a better suggestion?"* Suggestion made and built: fake the depth in vector rather than ship rasters. `CategorySlot` became a two-layer element — an unclipped outer span carrying the cast shadow as a `drop-shadow` (an outer `box-shadow` cannot work here, `clip-path` clips it) over a clipped inner span with a 145° gradient, a bright inset top edge and a dark inset bottom. Those are the same three cues a render gives you: a light source, a lit edge, and occlusion. Glyphs got a hard 1px extrusion plus a soft cast shadow and their fill raised 0.18 → 0.42, so they lift off the tile. Cost: **0 bytes of asset**, tap-to-paint 26.8 → 28.5ms (two filter passes; still under the 30ms line drawn in Phase 1.11). **The raster option was measured, not dismissed** — see DECISIONS D37, including the correction that its file size is *not* the reason to avoid it. Owner reviewed a rendered side-by-side and chose vector *for now*; the raster path stays costed and open |
 
-**Still open in Phase 2**: badge engine + gallery.
+| P7 — Badges: engine, gallery, moment | ✅ Done (2026-08-03) | The last Phase 2 item. `src/engine/badges.ts` is a **declarative catalogue**: every badge is a row with a `measure` that reduces a snapshot to a number and a `target` — so one shape yields the unlock test, the progress bar *and* the "6 / 10 quests" readout. 30 badges across Consistency / Volume / Mastery / Secrets, six of them hidden. **26 new engine tests, 138 total.** Migration `0006` stores only `badge_unlocks(badge_key, unlocked_at)`: everything else is derived on read (§4), but the *fact* it was earned cannot be — a badge is a one-way door, so undoing today's completion must never revoke one earned in March (DECISIONS D38). New `/badges` lazy route (1.6 KB gz) with three genuinely different states — struck metal, outline-plus-progress, and `???` for undiscovered secrets — plus a compact shelf on Profile. Unlock takeover reuses the StreakMoment structure and **queues**, because one tap can earn two badges |
+
+**Phase 2 is complete.** Skills, streaks, badges and the skill dashboard all shipped and verified.
+
+**A bug worth keeping.** The unlock moment first tried to *infer* which evaluation was the boot one — treat the first delivery of pending badges as startup and swallow it, so a first launch would not parade nine badges at someone who just opened the app. It ate the user's **first real badge** instead: boot normally unlocks nothing, so it never consumed its turn, and the swallow landed on the first genuine unlock. The fix was to stop inferring — boot now calls `resyncDerived(now, false)` and says so explicitly. Caught only because the browser pass asserted the moment *appeared*, not just that the badge was recorded.
 
 **Perf note worth keeping.** The harness measured tap-to-paint at 98.7ms after this round, which
 looked like a regression. It was not: the tap being measured happened to be the one that fires

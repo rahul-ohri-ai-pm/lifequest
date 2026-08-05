@@ -4,6 +4,7 @@ import { SystemHeading } from './components/system/SystemHeading';
 import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { BootSequence } from './components/system/BootSequence';
 import { StreakMoment } from './components/system/StreakMoment';
+import { BadgeMoment } from './components/system/BadgeMoment';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
 import { ensurePersistentStorage } from './db/storage';
@@ -11,7 +12,7 @@ import { runMigrations } from './db/migrations';
 import { useCharacterStore } from './store/useCharacterStore';
 import { useSkillStore } from './store/useSkillStore';
 import { useTaskStore } from './store/useTaskStore';
-import { useStreakStore } from './store/useStreakStore';
+import { resyncDerived } from './store/resync';
 import { gsap, useGsap } from './lib/gsap';
 import { cn } from './lib/utils';
 
@@ -21,6 +22,7 @@ const Calendar = lazy(() => import('./routes/Calendar'));
 const Stats = lazy(() => import('./routes/Stats'));
 const Profile = lazy(() => import('./routes/Profile'));
 const Archived = lazy(() => import('./routes/Archived'));
+const Badges = lazy(() => import('./routes/Badges'));
 const TaskDetail = lazy(() => import('./routes/TaskDetail'));
 import Today from './routes/Today';
 
@@ -37,6 +39,7 @@ const TITLES: Record<string, string> = {
   '/stats': 'Stats',
   '/profile': 'Profile',
   '/archived': 'Archived',
+  '/badges': 'Badges',
 };
 
 // Boot runs exactly once per page, no matter how many times the effect fires. React's
@@ -63,7 +66,8 @@ function boot(): Promise<void> {
     // Streaks are derived from the completions log and need the task list, so they run after
     // the others rather than alongside them. This is also where a break that happened while
     // the app was closed gets discovered and recorded.
-    await useStreakStore.getState().hydrate(useTaskStore.getState().tasks, new Date());
+    // Boot: derive and record, but celebrate nothing — see useBadgeStore.evaluate.
+    await resyncDerived(new Date(), false);
   })().catch((cause: unknown) => {
     bootPromise = null; // let a reload re-attempt rather than caching the failure forever
     throw cause;
@@ -237,6 +241,7 @@ export function App() {
           completing a quest from Today and from a task's detail screen both count. */}
       <LevelUpOverlay />
       <StreakMoment />
+      <BadgeMoment />
 
       <div className="relative mx-auto flex h-full w-full max-w-lg flex-col">
         <header className="relative shrink-0 px-4 pb-2 pt-3">
@@ -259,6 +264,7 @@ export function App() {
               <Route path="/stats" element={<Stats />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/archived" element={<Archived />} />
+              <Route path="/badges" element={<Badges />} />
               <Route path="/task/:id" element={<TaskDetail />} />
               <Route path="*" element={<Today />} />
             </Routes>

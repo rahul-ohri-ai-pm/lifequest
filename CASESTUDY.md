@@ -427,6 +427,52 @@ laid out across the element's *bounding box*, not along the path, so the top of 
 halfway down a diagonal ramp. Interpolating per segment index instead put the primary colour back
 where the spec wants it. **A shortcut that renders is not the same as a shortcut that works.**
 
+## Step 13 — Two features, one spec conflict, and a bug that ate the reward (2026-08-03)
+
+**What happened.** "There should be an option to add or remove categories… the icons can be
+selected from a predetermined list or you can find options based on keywords at run time.
+Let's start working on badges as well."
+
+**The conflict, and why the offered option was the wrong one.** Runtime keyword lookup means
+an icon API, and §2 says the app makes *no* network calls — not "none while offline". An icon
+that fails to load on a plane is worse than one that was never offered. So the search shipped,
+but local: thirty glyphs, each carrying keywords, matched against a compiled index. Two things
+fell out of that constraint that the nicer-sounding option would not have given. The icon a
+category shows can never change out from under it. And because the matcher is in-process, the
+picker can *pre-select while you type* — "Guitar practice" arrives already wearing the music
+mark, so most categories never need the picker opened at all. **The constraint produced the
+better interaction, not a worse one.**
+
+**"Remove" was the real design question.** A category holds XP the user earned and rows in
+`task_skills` pointing at it. Deleting it to tidy a list destroys history — the same mistake
+avoided three rounds earlier by *merging* Exercise into Fitness instead of dropping it. So
+remove is archive-first: a category with anything in it is archived and keeps everything; only
+a genuinely empty one is deleted, and the UI says which happened rather than leaving the user
+to find out. That is §4's no-hard-delete rule, applied one level up from the place it was
+written.
+
+**The badge bug that mattered.** Badges needed a rule the user would never see: on a *first
+launch* the engine legitimately unlocks a pile of them from existing history, and nine
+takeovers in a row in front of someone who just opened the app is a punishment, not a reward.
+The first implementation inferred it — treat the first delivery of pending badges as startup,
+swallow it, celebrate everything after. That logic ate the user's **first real badge**. Boot
+normally unlocks nothing, so it never consumed its turn, and the swallow landed on the first
+genuine unlock instead.
+
+The fix was to stop inferring: boot now says `resyncDerived(now, false)` out loud, and the
+component just renders a queue. **Inferring intent from the order events arrive is a guess
+wearing a heuristic's clothes — the caller already knew, and asking it was cheaper than being
+clever.** It was caught only because the browser pass asserted the celebration *appeared*, not
+merely that the badge was recorded in the database. A test that checks the write and not the
+reward would have shipped it.
+
+**A measurement lesson, again.** Three assertions in the category harness failed against a
+feature that was working: `document.body.innerText` silently returned a truncated subset of the
+page, one check searched for a string the success notice itself contained, and another matched
+the words "Archived quests" in an unrelated link. Every failure was in the ruler, not the
+thing being measured. **When a test fails, the first hypothesis should be that the test is
+wrong — it is newer, and it has been run fewer times.**
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -453,6 +499,8 @@ where the spec wants it. **A shortcut that renders is not the same as a shortcut
 | 2026-08-03 | "I want to make this look more cooler" + a third reference pin | The pin was a light-mode green nutrition tracker — its skin contradicts §5 on every axis. Took its **hierarchy** (week strip, hero ring, flanking counters, meter row, hero shelf) and none of its colour, then said so plainly rather than quietly rendering something the owner would recognise as not-the-pin (Step 12) |
 | 2026-08-03 | "Improve the profile page, add icons, use above reference for the kind of icons I want" | The reference's marks are 3D renders, which the spec forbids. Took the *treatment* — large, framed, own-colour, with volume — and said so rather than quietly shipping something the owner would recognise as not-the-pin. Also found the real defect on that screen: the skill list ranked by **level**, which is `1` for every skill for months, so the ranking column printed the same thing seven times |
 | 2026-08-03 | "Yes, I want 3D icons... unless you have a better suggestion?" → "keep vector for now" | Three objections were raised; measuring them **withdrew one as wrong** (file size: ~11.6 KB for all eight, not the burden claimed). The remaining one was a matter of taste, so it was settled with a rendered side-by-side on the real background instead of an argument — the clash between a red apple and a green Diet bar is a thing you see, not a thing you explain. The owner chose vector. **An opinion you can screenshot beats an opinion you can only assert** |
+| 2026-08-03 | "There should be an option to add or remove categories… icons from a list or found by keyword at run time" | Built the manager, and shipped the keyword search **locally** — a lookup service would have been a network call, which §2 forbids outright. The constraint improved the feature: an in-process matcher can pre-select the icon while you type. "Remove" became archive-first, because a category holds earned XP and tidying a list must not destroy it (Step 13) |
+| 2026-08-03 | "Let's start working on badges as well, ensure they look really nice. Where do you plan to place them?" | Answered the placement question before building: Profile is home, a lazy `/badges` gallery holds the full set, the unlock gets a takeover, and Today stays clear because its job is capture in under five seconds. 30 badges as a declarative catalogue whose rules yield the unlock test, the progress bar and the "6 / 10" readout from one definition (D39) |
 
 ---
 
@@ -503,6 +551,14 @@ where the spec wants it. **A shortcut that renders is not the same as a shortcut
     file size, then measured it: 11.6 KB. The two real objections survived — but I nearly won
     the argument on the fake one. Measure your own objections before you spend someone's trust
     on them.
+
+20. **"My clever guard ate the user's first reward."** A rule that suppressed startup
+    celebrations by inferring which run was startup — and got it exactly backwards, because
+    startup usually has nothing to suppress. Inferring intent from event order when the caller
+    already knows it.
+21. **"The offline constraint made the feature better."** We couldn't call an icon API, so we
+    built a local matcher — and because it runs in-process, it can guess the icon while you
+    type. The workaround beat the thing it replaced.
 
 ---
 

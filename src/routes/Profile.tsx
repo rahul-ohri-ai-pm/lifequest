@@ -19,6 +19,9 @@ import {
   UndoIcon,
 } from '../components/icons';
 import { CategoryEditor } from '../components/system/CategoryEditor';
+import { BadgeCrest } from '../components/system/BadgeCrest';
+import { useBadgeStore } from '../store/useBadgeStore';
+import { sortForGallery } from '../engine/badges';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { useSkillStore } from '../store/useSkillStore';
 import { useStreakStore } from '../store/useStreakStore';
@@ -62,6 +65,7 @@ export default function Profile() {
   const totalCompletions = useStreakStore((s) => s.totalCompletions);
   const activeDays = useStreakStore((s) => s.activeDays);
   const global = useStreakStore((s) => s.global);
+  const badgeStatuses = useBadgeStore((s) => s.statuses);
 
   // Strongest first, so the stat block leads with what the user has actually built.
   const addSkill = useSkillStore((s) => s.addSkill);
@@ -80,6 +84,10 @@ export default function Profile() {
     () => [...active].sort((a, b) => b.totalXp - a.totalXp || a.name.localeCompare(b.name)),
     [active]
   );
+  // The shelf shows the four most notable: unlocked rarest-first, then whatever is closest.
+  const shelf = useMemo(() => sortForGallery(badgeStatuses).slice(0, 4), [badgeStatuses]);
+  const badgesEarned = badgeStatuses.filter((b) => b.unlocked).length;
+
   const takenNames = (exceptId?: string) =>
     new Set(skills.filter((s) => s.id !== exceptId).map((s) => s.name.trim().toLowerCase()));
 
@@ -143,6 +151,37 @@ export default function Profile() {
           />
         </div>
       </SystemPanel>
+
+      <RuneDivider label="Badges" />
+
+      <Link to="/badges" className="block">
+        <SystemPanel innerClassName="flex items-center gap-3 px-4 py-4">
+          <div className="flex flex-1 items-center justify-between gap-1">
+            {shelf.map((s) => (
+              <div key={s.rule.key} className="flex flex-col items-center gap-1">
+                <BadgeCrest
+                  tier={s.rule.tier}
+                  group={s.rule.group}
+                  unlocked={s.unlocked}
+                  mystery={!s.unlocked && !!s.rule.hidden}
+                  size={44}
+                />
+                <span className="max-w-16 truncate font-display text-[9px] uppercase tracking-[0.1em] text-muted">
+                  {!s.unlocked && s.rule.hidden ? '???' : s.rule.name}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-0.5 border-l border-edge/60 pl-3">
+            <span className="font-display text-2xl leading-none tabular-nums text-fg">
+              {badgesEarned}
+            </span>
+            <span className="font-display text-[9px] uppercase tracking-[0.16em] text-muted">
+              of {badgeStatuses.length}
+            </span>
+          </div>
+        </SystemPanel>
+      </Link>
 
       <RuneDivider label="Categories" />
 
