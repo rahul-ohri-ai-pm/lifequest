@@ -473,6 +473,60 @@ the words "Archived quests" in an unrelated link. Every failure was in the ruler
 thing being measured. **When a test fails, the first hypothesis should be that the test is
 wrong — it is newer, and it has been run fewer times.**
 
+## Step 14 — A second user, and a bug I could not reproduce (2026-08-03)
+
+**What happened.** "My friend got this error on his phone browser" — a screenshot of iPhone Safari
+refusing to open the database, with the parenthetical *"The operation failed for an unknown
+transient reason (e.g. out of memory)."*
+
+**Three facts collided.** The error names no cause: that string is WebKit's generic `DOMException`
+text. iOS had been formally **scoped out** a day earlier, on the owner's own statement that he owns
+no iOS device — a scoping I had recorded and relied on. And there is **no WebKit in the build
+environment**, so I could not reproduce it, and could not verify any fix I wrote for it.
+
+**The call.** Split the response by what could be justified without evidence. Two changes were
+independently defensible and shipped: a smaller pool of sync access handles (six held open at once
+is real pressure on an engine that just refused), and one retry, since the error calls itself
+transient. Everything else became a **probe** — a Diagnose button that runs the actual OPFS
+sequence on the failing device and reports which step breaks.
+
+**Why that is the product decision and not a cop-out.** The tempting move is to ship a plausible
+iOS fix and call it resolved. Unverifiable fixes are how a bug gets closed twice: once wrongly,
+then again for real, with the user's trust spent in between. Turning the failure screen into an
+instrument converts one useless screenshot into a diagnosis — and it improved the product for
+every platform, because the old screen was a dead end with no retry on a device that has no
+console. **When you cannot reproduce a bug, ship the thing that makes the next report conclusive.**
+
+**The scope question was handed back, deliberately.** Sharing the app changed the premise that
+justified dropping iOS. Whether it is now a supported platform has a real cost — blind development
+through a third party's screenshots, and possibly a second storage backend — and that is an
+owner's call, not a bug report's.
+
+**What was fixed for everyone.** The failure screen now leads with the causes a user can act on
+(private tab, another tab, disk full), in likelihood order, and has a retry button. "OPFS" is not
+actionable; "you may be in a private tab" is.
+
+## Step 15 — Trusting the ruler over the thing being measured (2026-08-03)
+
+Three separate times in two rounds, a check failed against code that was working.
+
+The category harness reported a duplicate-name warning missing — it was rendering, but
+`document.body.innerText` was silently returning a *truncated subset* of the page. It reported a
+deleted category still present — because the success notice said *"Guitar practice deleted"* and
+the assertion searched for its name. It reported an archived section still open — because an
+unrelated **"Archived quests →"** link matched the word forever.
+
+Then the deploy check said the live bundle hash matched neither the previous release nor the local
+build, which reads exactly like a failed deploy. It wasn't: a clean rebuild of the same commit
+reproduced the live hash twice. The earlier build had run over a **warm `dist/`** and produced a
+different artifact from identical source — which also meant the bundle I had browser-tested was not
+the bundle that shipped, so the tests were re-run against the real one.
+
+Four false alarms, zero real defects. **When a test fails, the first hypothesis should be that the
+test is wrong — it is newer than the feature and it has been run fewer times.** The corollary is
+sharper: a measurement you have not questioned is not evidence, and the failure mode is not the
+false alarm you notice — it is the false *pass* you don't.
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -499,6 +553,10 @@ wrong — it is newer, and it has been run fewer times.**
 | 2026-08-03 | "I want to make this look more cooler" + a third reference pin | The pin was a light-mode green nutrition tracker — its skin contradicts §5 on every axis. Took its **hierarchy** (week strip, hero ring, flanking counters, meter row, hero shelf) and none of its colour, then said so plainly rather than quietly rendering something the owner would recognise as not-the-pin (Step 12) |
 | 2026-08-03 | "Improve the profile page, add icons, use above reference for the kind of icons I want" | The reference's marks are 3D renders, which the spec forbids. Took the *treatment* — large, framed, own-colour, with volume — and said so rather than quietly shipping something the owner would recognise as not-the-pin. Also found the real defect on that screen: the skill list ranked by **level**, which is `1` for every skill for months, so the ranking column printed the same thing seven times |
 | 2026-08-03 | "Yes, I want 3D icons... unless you have a better suggestion?" → "keep vector for now" | Three objections were raised; measuring them **withdrew one as wrong** (file size: ~11.6 KB for all eight, not the burden claimed). The remaining one was a matter of taste, so it was settled with a rendered side-by-side on the real background instead of an argument — the clash between a red apple and a green Diet bar is a thing you see, not a thing you explain. The owner chose vector. **An opinion you can screenshot beats an opinion you can only assert** |
+| 2026-08-03 | "Need the badges to have animations, and show progress for each badge" | Progress moved *into* the crest as a ring rather than staying a 2px hairline under the label — and onto the Profile shelf, which had a count but no progress at all. Motion is all one-shot: rings draw to their real value, a glint crosses each earned crest once. Asserted mid-flight *and* settled, because an animation that ends on the wrong value is worse than none |
+| 2026-08-03 | "My friend got this error on his phone browser" (iPhone Safari, screenshot) | Could not reproduce — no WebKit in the environment — so shipped only what was independently justified, and turned the rest into an on-device probe. Handed the "is iOS supported now?" scope question back to the owner rather than answering it silently (Step 14) |
+| 2026-08-06 | "Is it deployed?" | Yes — but the check first said the hashes disagreed. Chased it rather than re-running until it looked right: the local build had been made over a warm `dist/`. Re-verified against a clean rebuild and re-ran the browser tests on the artifact that actually shipped (Step 15) |
+| 2026-08-06 | "Update all markdown files" | Nine files audited, not just appended to. Two CONVENTIONS rules had become **factually false** (no-hard-delete, and the list of sanctioned caches), PLAN still specified `expo-crypto` and `expo-notifications` for a stack with no Expo in it, and ARCHITECTURE's file map was missing about half the codebase |
 | 2026-08-03 | "There should be an option to add or remove categories… icons from a list or found by keyword at run time" | Built the manager, and shipped the keyword search **locally** — a lookup service would have been a network call, which §2 forbids outright. The constraint improved the feature: an in-process matcher can pre-select the icon while you type. "Remove" became archive-first, because a category holds earned XP and tidying a list must not destroy it (Step 13) |
 | 2026-08-03 | "Let's start working on badges as well, ensure they look really nice. Where do you plan to place them?" | Answered the placement question before building: Profile is home, a lazy `/badges` gallery holds the full set, the unlock gets a takeover, and Today stays clear because its job is capture in under five seconds. 30 badges as a declarative catalogue whose rules yield the unlock test, the progress bar and the "6 / 10" readout from one definition (D39) |
 
@@ -559,6 +617,15 @@ wrong — it is newer, and it has been run fewer times.**
 21. **"The offline constraint made the feature better."** We couldn't call an icon API, so we
     built a local matcher — and because it runs in-process, it can guess the icon while you
     type. The workaround beat the thing it replaced.
+
+22. **"I couldn't reproduce my user's bug, so I shipped him an instrument instead."** What to do
+    when the failure is on a platform you cannot run: stop guessing fixes, and make the next bug
+    report conclusive.
+23. **"Four failing tests, zero bugs."** Every one was the assertion's fault — a string the
+    success message itself contained, a link matching the word "Archived", `innerText` quietly
+    truncating. Suspect the ruler before the thing you're measuring.
+24. **"My docs said we used a library we deleted three weeks ago."** Documentation rots silently
+    because nothing fails when it's wrong. Auditing it is a task, not a side effect of writing it.
 
 ---
 

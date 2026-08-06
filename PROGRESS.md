@@ -92,7 +92,7 @@ CONNECT through the session proxy is reset while `curl` succeeds (GOTCHAS 31).
 
 | Milestone | Status | Notes |
 |---|---|---|
-| D3 — Durable storage request + honest reporting | ✅ Done (2026-08-02) | `src/db/storage.ts` calls `navigator.storage.persist()` once per page load, fired from `boot()` but **deliberately not awaited** — Firefox prompts, and awaiting it would hold the app on its spinner behind a dialog. The grant is never ours to make (Chrome infers from engagement, Safari grants on home-screen install), so the outcome is *shown* rather than assumed: Profile renders `persisted` / `best-effort` / `unsupported` from the memoized result, with the at-risk case getting the only alert treatment. Verified in a browser, including the failure path — headless Chromium refuses the grant, and the panel correctly reads "STORAGE EVICTABLE" with the home-screen advice. The success path could not be exercised headlessly and remains unconfirmed on a real device |
+| D3 — Durable storage request + honest reporting | ✅ Done (2026-08-02) | `src/db/storage.ts` calls `navigator.storage.persist()` once per page load (D43), fired from `boot()` but **deliberately not awaited** — Firefox prompts, and awaiting it would hold the app on its spinner behind a dialog. The grant is never ours to make (Chrome infers from engagement, Safari grants on home-screen install), so the outcome is *shown* rather than assumed: Profile renders `persisted` / `best-effort` / `unsupported` from the memoized result, with the at-risk case getting the only alert treatment. Verified in a browser, including the failure path — headless Chromium refuses the grant, and the panel correctly reads "STORAGE EVICTABLE" with the home-screen advice. The success path could not be exercised headlessly and remains unconfirmed on a real device |
 
 **A question worth recording**: the owner asked whether a JSON export would still be sane once it
 holds a year of data. Measured against the real schema rather than guessed — a realistic 5
@@ -210,8 +210,12 @@ Verified. The range *math* is owned by the engine tests, which use dated rows.
 - No automated browser regression test in CI. The X1 end-to-end pass was a local scripted headless
   Chrome run over CDP; the deploy workflow gates on typecheck + tests + lint + build only. Now that
   web is the *only* channel, this is the most valuable piece of missing coverage
-- **The live site has not been confirmed on the owner's real phone yet.** All passes have been
-  headless Chromium. Not done until a quest survives a real close-and-reopen on the device.
+- **Real-device coverage is partial, and asymmetric.** The owner *has* confirmed the live site on
+  his own Android phone — persistence across a close-and-reopen was reported working on 2026-08-02,
+  and every feedback round since has come from real use. What is still unconfirmed on real hardware
+  is the **durable-storage grant** (headless Chromium always refuses it, so only the failure path
+  has been exercised) and **anything at all on iOS** (below). Every automated pass in this repo is
+  headless Chromium: treat "verified" as meaning that, not more.
   **iOS Safari was scoped out on 2026-08-02** — the owner owns no iOS device and the app is
   single-user by design (§2), so "browser support" collapsed to one browser on one phone.
   **That premise changed on 2026-08-03**: the owner shared the link and a friend hit a hard
@@ -225,13 +229,20 @@ Verified. The range *math* is owned by the engine tests, which use dated rows.
   platform it targets, and future sessions should not claim otherwise.
 - **Browser eviction is now requested against, but cannot be guaranteed.** OPFS is the only copy of
   every quest, completion and XP row (§2: no cloud, deliberately). `src/db/storage.ts` asks for
-  durable storage at boot (D3 below), but the grant is the browser's call, not ours — Chrome
+  durable storage at boot (D43), but the grant is the browser's call, not ours — Chrome
   decides from engagement signals, Firefox prompts, Safari grants on home-screen install. Profile
   reports the real outcome instead of assuming success. Clearing site data still wipes everything
   regardless. **This remains the strongest argument for pulling the Phase 3 JSON export/import
   forward** — a request the browser may refuse is not a backup, and export/import is the only one a
   no-server app can have. Measured: a realistic year of history is ~425 KB of JSON (47 KB gzipped),
   so file size is no reason to delay it
+- **Documentation rots silently, and it did.** The 2026-08-06 audit found two CONVENTIONS rules
+  that had become *false* rather than merely incomplete (rule 7's "no hard delete, anywhere" after
+  categories gained a bounded delete; rule 8's list of sanctioned caches, which had grown by two),
+  PLAN specifying `expo-crypto` and `expo-notifications` for a stack with no Expo in it, and
+  ARCHITECTURE's file map missing roughly half the codebase. Nothing fails when a doc is wrong, so
+  **auditing all nine files is a task in its own right** — not something that happens as a side
+  effect of appending to PROGRESS at the end of a round
 - `sqlite3-worker1.js` and `sqlite3-opfs-async-proxy.js` (~243 KB combined) are emitted into
   `dist/` because the sqlite-wasm entrypoint references them, but the sahpool path never loads
   them. Dead weight on disk, not on the wire — not worth patching the package to strip

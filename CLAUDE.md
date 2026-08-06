@@ -87,7 +87,7 @@ phone. This is a standing constraint on every dependency and every screen, not a
   put ~860 of them on screen at once and took tap-to-paint from 30ms to 152ms (GOTCHAS 32).
   Check `document.getAnimations().length` on Today before shipping any ambient effect — at
   rest it should be 0, or 1 for the sigil ring.
-- Routes that aren't the initial one (Calendar, Stats, Profile, Archived, task detail) are
+- Routes that aren't the initial one (Calendar, Stats, Profile, Badges, Archived, task detail) are
   `React.lazy`-loaded in `src/App.tsx` so each becomes its own chunk — don't collapse them into
   one eagerly-loaded bundle.
 - Fonts: at most one display font (for headers/numbers) plus the system font for body text — load
@@ -108,57 +108,74 @@ vite.config.ts                # base path, worker format, sqlite-wasm dep handli
 vitest.config.ts              # test config — separate on purpose, see the file
 src/
   main.tsx                   # React root, router, service-worker registration
-  App.tsx                    # boot gate (open DB → migrate → hydrate), layout, tab bar, routes
-  index.css                  # Tailwind entry + §5 palette as @theme tokens + display font
+  App.tsx                    # boot gate (open DB → migrate → hydrate → resync), layout, tab bar, routes
+  index.css                  # Tailwind entry + §5 palette as @theme tokens + utilities + display font
 
   routes/                    # one file per screen (screens only — no game logic)
-    Today.tsx                # Today view — task list, fast capture
-    Calendar.tsx             # month/agenda view of scheduled + due tasks (Phase 1)
-    Stats.tsx                # skill dashboard w/ date filters (Phase 2), full stats/heatmap (Phase 3)
-    Profile.tsx              # character level, XP, skill breakdown
+    Today.tsx                # Today view — week strip, status hero, quest log, fast capture
+    Calendar.tsx             # month/agenda view + backfill; accepts ?day=YYYY-MM-DD
+    Stats.tsx                # skill dashboard with Day/Week/Month/All filters
+    Profile.tsx              # character, lifetime record, badge shelf, category manager, radar
+    Badges.tsx               # the badge gallery (Phase 2)
     Archived.tsx             # archived quests, restore
     TaskDetail.tsx           # task detail / edit
 
   engine/                    # PURE TypeScript. No React or DOM imports. Fully unit-tested.
-    tuning.ts                # difficulty->XP table, level-curve constants (Phase 1)
-    xp.ts                    # xpForDifficulty, xpRequiredForLevel, levelForTotalXp (Phase 1)
-    stats.ts                 # pure aggregations over completion rows (Phase 1, grows in Phase 3)
-    streaks.ts               # streak transition logic (Phase 2)
-    badges.ts                # declarative badge rule array + evaluator (Phase 2)
-    goals.ts                 # goal progress calculators (Phase 3)
+    tuning.ts                # difficulty->XP table, level-curve constants
+    xp.ts                    # xpForDifficulty, xpRequiredForLevel, levelForTotalXp, splitSkillXp
+    time.ts                  # local day keys, DST-safe day arithmetic, schedule matching
+    counted.ts               # the one-award-per-day threshold rule
+    calendar.ts              # monthGrid
+    stats.ts                 # pure aggregations over completion rows (incl. weekStrip)
+    streaks.ts               # streak transitions, derived from the log
+    badges.ts                # declarative badge catalogue + evaluator
+    goals.ts                 # goal progress calculators (Phase 3 — not built)
     __tests__/
 
   db/
     sqlite.ts                # the SqlDatabase interface everything above db/ is written against
-    client.ts                # owns the worker protocol; the only file that knows the driver
-    sqlite.worker.ts         # sqlite-wasm + opfs-sahpool, serialized request queue
+    client.ts                # owns the worker protocol, the single-tab lock, and probeStorage()
+    sqlite.worker.ts         # sqlite-wasm + opfs-sahpool, serialized queue, OPFS capability probe
+    transaction.ts           # write-exclusivity rebuilt in JS (the sahpool VFS is single-connection)
+    storage.ts               # durable-storage request + usage reporting
     migrations/
-      0001_init.ts
-      index.ts                # migration runner (reads schema_migrations, applies pending, in order)
+      0001_init.ts           # tasks, completions, skips, character, settings
+      0002_skills.ts         # skills, task_skills + the §6 defaults
+      0003_streaks.ts        # streaks, streak_resets
+      0004_merge_exercise.ts # Exercise merged into Fitness (merged, not deleted)
+      0005_skill_status_icons.ts  # skills.status + icon keys
+      0006_badges.ts         # badge_unlocks
+      index.ts               # migration runner (reads schema_migrations, applies pending, in order)
     queries/                 # thin, typed query functions — one file per table
-      tasks.ts
-      completions.ts
-      character.ts
+      tasks.ts  completions.ts  character.ts  skills.ts
+      skips.ts  streaks.ts  badges.ts  settings.ts
 
   store/                     # Zustand stores. Read/write through db/queries, never raw SQL.
-    useTaskStore.ts
-    useCharacterStore.ts
+    useTaskStore.ts  useCharacterStore.ts  useSkillStore.ts
+    useStreakStore.ts  useBadgeStore.ts
+    resync.ts                # re-derives streaks then badges after every write to the log
 
   components/                # Presentational + light-stateful components
+    system/                  # the design-system primitives and the full-screen moments
+    charts/                  # dashboard chart components
     ui/                      # vendored Magic UI primitives — kept close to upstream
+    icons.tsx                # UI glyphs (nav, verbs, streak, bolt)
+    categoryIcons.tsx        # the category glyph library + local keyword search
   lib/
+    gsap.ts                  # plugin registration + useGsap (context that reverts on unmount)
+    burst.ts                 # one-shot DOM effects outside React (ripple, flyXp, igniteRow)
     utils.ts                 # cn() — the shadcn/Magic UI class-merge helper
   types/
-    index.ts                 # Task, Completion, Difficulty, Character, etc.
+    index.ts                 # Task, Completion, Difficulty, Character, SkillDef, etc.
   constants/
     theme.ts                 # color *values* for SVG/inline use; classes live in index.css
 
-public/                      # copied verbatim into dist/
-  sw.js                      # offline shell cache (§2)
-  manifest.webmanifest       # PWA install metadata
+public/                       # copied verbatim into dist/
+  sw.js                       # offline shell cache (§2)
+  manifest.webmanifest        # PWA install metadata
   icon-*.png
 scripts/
-  finalize-web-export.mjs    # .nojekyll + 404.html for GitHub Pages
+  finalize-web-export.mjs     # .nojekyll + 404.html for GitHub Pages
 tsconfig.json
 package.json
 CLAUDE.md
@@ -266,12 +283,17 @@ CREATE TABLE settings (
 CREATE TABLE skills (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL UNIQUE,
-  icon       TEXT,
+  icon       TEXT,                          -- a key into the icon library, not a path (see §6)
   color      TEXT,
   total_xp   INTEGER NOT NULL DEFAULT 0,
   level      INTEGER NOT NULL DEFAULT 1,
+  status     TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'archived' (added by 0005)
   created_at TEXT NOT NULL
 );
+-- Removing a category archives it whenever it holds XP or tagged tasks, and hard-deletes it only
+-- when it holds neither. Same reason as §4's no-hard-delete rule for tasks: tidying a list must
+-- never destroy XP the user earned. Archived categories leave every picker but stay readable, so
+-- a quest tagged with a retired category still renders.
 
 CREATE TABLE task_skills (                    -- many-to-many
   task_id  TEXT NOT NULL REFERENCES tasks(id),
@@ -300,6 +322,9 @@ CREATE TABLE badge_unlocks (                  -- badge catalog itself lives in s
   badge_key   TEXT PRIMARY KEY,               -- matches the `key` in the badges.ts rule array
   unlocked_at TEXT NOT NULL
 );
+-- Only the unlock is stored. Progress, tier and whether a badge still qualifies are all derived
+-- on read; what cannot be derived is that it was *earned*, because unlocking is a one-way door —
+-- undoing today's completion must never revoke a badge won in March.
 
 -- Phase 3
 CREATE TABLE goals (
@@ -482,7 +507,7 @@ and level update immediately on completion; and all of it survives a full app re
 relaunch, not just backgrounding). The dark/glow-panel visual style (§5) is applied throughout, not
 just on one screen.
 
-### Phase 2 — Skills, Streaks, Badges, Skill Dashboard
+### Phase 2 — Skills, Streaks, Badges, Skill Dashboard — ✅ **complete (2026-08-03)**
 Skill tagging on tasks, skill XP/leveling (split-evenly rule, §7), per-habit and global streaks
 with reset tracking (no freezes, §7), badge engine (`src/engine/badges.ts`) with ~25 badges
 including hidden ones, badge gallery screen, and a **skill dashboard** (`app/(tabs)/stats.tsx`)
@@ -494,7 +519,12 @@ count; at least the launch badge set unlocks correctly and shows in the gallery 
 states working; the skill dashboard shows correct per-skill stats and the date filter changes what
 range they're computed over.
 
-### Phase 3 — Goals, Full Stats, Polish
+### Phase 3 — Goals, Full Stats, Polish — *next*
+
+**Recommended order**: JSON export/import first. OPFS is still the only copy of the data, and a
+durable-storage grant the browser can refuse or revoke is not a backup — it is the one Phase 3 item
+that protects everything already built.
+
 Goals (skill-level targets, aggregate counts, streak-length, completion-count) with progress bars
 and bonus XP + badge on completion; full stats screen (completions over time, XP per skill, streak
 history, best day/week, completion rate by weekday, GitHub-style heatmap); local notifications for

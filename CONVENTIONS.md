@@ -28,12 +28,22 @@ and ask the owner instead of improvising.
 
 ## Data rules
 
-7. **No hard delete, anywhere.** Archive is the only removal path for tasks. Completion rows are
-   only ever deleted by `undoCompletion` (the §4 undo action), which reverses exactly that row's
-   `xp_awarded`.
-8. **Never store derived stats.** Aggregations are computed on read from the log. The only
-   sanctioned caches are `character.total_xp/level` (and later `skills.total_xp/level`), updated
-   inside the same transaction as the completion write.
+7. **No hard delete of anything that carries history.** Archive is the only removal path for
+   tasks. Completion rows are only ever deleted by `undoCompletion` (the §4 undo action), which
+   reverses exactly that row's `xp_awarded`. **One bounded exception**: `removeSkill` hard-deletes
+   a category that holds *no* XP and *no* tagged tasks, because there is nothing there to lose and
+   typos should not be permanent — it archives in every other case. If you add a delete path,
+   the test is not "is this convenient" but "can this destroy a row the user earned".
+8. **Never store derived stats.** Aggregations are computed on read from the log. Three
+   sanctioned exceptions, and no more: `character.total_xp/level` and `skills.total_xp/level`
+   (running totals written inside the same transaction as the completion); `streaks.longest_streak`
+   and `reset_count` (records that re-derivation would erase, since undoing today would wipe a
+   record set in March); and `badge_unlocks` (the unlock itself, for the same reason). Each is
+   there because the value **cannot be re-derived**, not because deriving it was slow.
+8b. **Derived state must be re-derived after every write to the log.** Streaks and badges count
+   nothing up on completion — they are recomputed from `completions`. Call `resyncDerived()` from
+   `src/store/resync.ts`; it runs streaks *then* badges, because badge rules read the streak
+   record. Boot passes `celebrate: false`.
 9. **Migrations are forward-only and immutable once shipped.** New schema change ⇒ new
    `NNNN_description.ts` file registered in `src/db/migrations/index.ts`. NEVER edit
    `0001_init.ts` or any shipped migration. No `down()` functions.
@@ -60,7 +70,11 @@ and ask the owner instead of improvising.
 13b. **Every animation must end.** Nothing may animate at rest: no infinite CSS keyframes and
     no `repeat: -1` timelines behind the app. This is not a style preference — it is the rule
     that was violated to the tune of 862 simultaneous animations and a 5× slower tap
-    (GOTCHAS 32-33). GSAP timelines are transient by default; keep it that way.
+    (GOTCHAS 32-33). GSAP timelines are transient by default; keep it that way. Check
+    `document.getAnimations().length` on arrival at a screen, not just on first paint.
+13c. **CSS filters go on the `<svg>` root, never on a path inside it.** A filter on a child
+    element establishes its own filter region, which Chromium rasterises as a visible rectangle
+    behind the shape — and it is one filter pass per element (GOTCHAS 36).
 14. **Colors come from the `@theme` tokens in `src/index.css`** — reach them through Tailwind
     classes (`bg-panel`, `text-accent`, `border-edge`). `src/constants/theme.ts` holds the same
     palette as *values*, for SVG props and data-driven inline styles only; keep the two in sync.
@@ -75,11 +89,14 @@ and ask the owner instead of improvising.
 
 16. Run, in order, and all must pass:
     ```bash
-    npm test              # 63+ engine tests
+    npm test              # 138 tests (engine + the icon registry)
     npm run typecheck     # tsc --noEmit
     npm run lint          # eslint
-    npm run build:web     # the shipped channel — catches route/import/bundle errors
+    rm -rf dist && npm run build:web   # the shipped channel — catches route/import/bundle errors
     ```
+    **`rm -rf dist` is not optional.** A build over a warm `dist/` can produce a different artifact
+    from the same source, which means the bundle you browser-tested may not be the bundle you ship,
+    and a byte-comparison against the live site can report a false mismatch (GOTCHAS 39).
     Then **actually load it in a browser**. Changes to `src/db/`, the stores, or `src/App.tsx`
     especially: the browser catches render loops, blank-page boots, and worker failures that
     neither the unit tests nor the bundler will — that is how GOTCHAS 12–13 and 22–24 were all

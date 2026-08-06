@@ -1,5 +1,11 @@
 # LifeQuest — Execution Plan
 
+> **Historical record + forward plan.** Milestones M0–M9 and Phases 1.5/1.6 were executed on the
+> Expo/React Native stack that was removed on 2026-08-02 (DECISIONS D20). They are kept because the
+> *sequencing* argument still holds and the decisions still bind — but where they name a platform
+> API, read the "Settled technical decisions" table below for what is actually in use. Current
+> status always lives in [PROGRESS.md](PROGRESS.md).
+
 Synthesized from a two-agent architecture debate (2026-07-09): foundation-first for the engine/data
 core (the append-forever completions log must never receive wrong rows), vertical slices for
 everything after (every migration ships with the UI that reads it; app runnable at every milestone).
@@ -9,13 +15,13 @@ Spec: [CLAUDE.md](CLAUDE.md). Progress: [PROGRESS.md](PROGRESS.md).
 
 | Decision | Choice |
 |---|---|
-| SQLite API | Async (`openDatabaseAsync`/`runAsync`); `withExclusiveTransactionAsync` for XP write paths |
+| SQLite API | `@sqlite.org/sqlite-wasm` on the `opfs-sahpool` VFS in a dedicated worker, behind the 4-method `SqlDatabase` interface. *(Was expo-sqlite until 2026-08-02, D20/D22.)* Write-exclusivity is rebuilt in JS by `src/db/transaction.ts` — the VFS is single-connection |
 | Atomicity | `logCompletion` = completion insert + character XP update in one exclusive transaction; `undoCompletion` is its exact inverse. Dev-mode invariant: `character.total_xp === SUM(completions.xp_awarded)` |
-| UUIDs | `expo-crypto` `Crypto.randomUUID()` |
+| UUIDs | `crypto.randomUUID()` (the platform API; `expo-crypto` went with Expo) |
 | Day keys | Local `YYYY-MM-DD` from date components (never `toISOString()`); day arithmetic via calendar constructors (DST-safe) |
 | Calendar | Hand-rolled: pure `monthGrid()` in engine + 7-column Pressable grid. No calendar library |
 | Zustand | Write-to-DB-first enforced structurally: queries return persisted rows; stores only `set()` from those return values |
-| Migrations | `0001_init` = Phase 1 tables only (incl. `skips`, indexes, CHECK constraints). Phase 2/3 tables in later migrations, shipped with their UI |
+| Migrations | Forward-only, one logical change per file, immutable once shipped. `0001`–`0006` applied; `goals` is the only table still unbuilt |
 | Fonts | Rajdhani Regular + Bold only, loaded at first styled screen |
 
 ## Phase 1 milestones
@@ -66,19 +72,40 @@ installs to the home screen, so the feedback loop stops depending on a toolchain
   every render (infinite loop under React 19)
 
 Nothing in `src/engine/` changed — the game math was already platform-free, which is what made this
-a distribution task rather than a rewrite. Native (Expo Go + APK) stays fully supported.
+a distribution task rather than a rewrite. *(At the time, native stayed supported alongside web.
+That ended on 2026-08-02: Expo was removed entirely and web became the only target — D20.)*
 
-## Phase 2 (repeat M1→M3 pattern per feature)
+## Phase 2 — ✅ complete (2026-08-03)
 
-1. `streaks.ts` table-tested (schedule × completion × skip permutations) **before** streak UI
-2. `0002_skills_and_streaks` migration + skill tagging UI + split-XP rule
-3. Badge engine tested against synthetic logs → badge gallery (~25 badges, hidden states)
-4. Skill dashboard in stats tab with date filters
+The engine-before-UI pattern held for all four, and each one's math was tested against synthetic
+logs before a pixel of it was drawn.
 
-## Phase 3
+1. ✅ `streaks.ts` table-tested (schedule × completion × skip permutations, both DST transitions)
+   **before** streak UI. Derived from the log, never incremented (D29)
+2. ✅ Skill tagging + split-XP shipped earlier than planned, in N4 (`0002_skills`); streak
+   persistence landed separately in `0003_streaks`
+3. ✅ Badge engine tested against synthetic logs → gallery. **30 badges**, six hidden, rules as
+   `measure`/`target` data rather than predicates (D39)
+4. ✅ Skill dashboard with Day/Week/Month/All filters governing every panel
 
-1. `goals.ts` engine + goals UI (4 goal types, bonus XP + badge)
-2. Full stats screen + GitHub-style heatmap (pure reads over completions)
-3. Local notifications (expo-notifications, reminders only)
-4. Level-up celebration animations (reanimated)
-5. JSON export/import + round-trip test (export → fresh install → import → identical state)
+## Phase 3 — next
+
+Ordering changed from the original list. **Export/import moves to the front**: OPFS holds the only
+copy of the data and a durable-storage grant can be refused or revoked, so it is the item that
+protects everything already built rather than adding to it.
+
+1. **JSON export/import** + round-trip test (export → fresh install → import → identical state).
+   Measured at ~425 KB / 47 KB gzipped for a realistic year, so size is no reason to delay it
+2. `goals.ts` engine + goals UI (4 goal types, bonus XP + badge)
+3. Full stats screen + GitHub-style heatmap (pure reads over completions)
+4. Local notifications — the **Web Notifications + Service Worker** APIs, not `expo-notifications`
+   (Expo is gone). Reminders only, and note that this is the first feature to need a permission
+   prompt
+5. ~~Level-up celebration animations (reanimated)~~ — **done early**, on GSAP, in Phase 1.12
+
+## Open platform question
+
+**iOS Safari.** Scoped out on 2026-08-02 (the owner owns no iOS device), then a second user hit a
+hard startup failure there on 2026-08-03. There is no WebKit in the build environment, so nothing
+iOS-specific can be verified here. Mitigations and an on-device OPFS probe shipped; whether iOS
+becomes a supported platform is an open owner decision with a real cost attached (D41).

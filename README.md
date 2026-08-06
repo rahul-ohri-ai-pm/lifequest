@@ -5,6 +5,11 @@ strict, SQLite-on-WebAssembly, Zustand, React Router, Tailwind v4, Magic UI). Re
 XP, levels, streaks, and badges. No backend, no accounts, no network calls — everything lives in
 on-device SQLite.
 
+**Phase 1 and Phase 2 are complete**: all three task types with the full verb set, XP and character
+levels, a calendar with backfill, editable categories with split XP, derived streaks, a 30-badge
+engine with its gallery, and a filtered skill dashboard. Phase 3 is next — see
+[PROGRESS.md](PROGRESS.md).
+
 ## For any AI agent / developer working on this repo — read in this order
 
 | File | What it is | Read when |
@@ -12,7 +17,7 @@ on-device SQLite.
 | [CLAUDE.md](CLAUDE.md) | **The product spec** — features, schema, XP/streak rules, design system, phased roadmap. The source of truth for *what* to build | Always, first |
 | [CONVENTIONS.md](CONVENTIONS.md) | **Hard rules** for changing code — layer boundaries, migration rules, date handling, verification workflow. Violating these corrupts data or breaks the build | Always, before editing anything |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is actually structured — layers, data flow of every mutation, file map | Before touching more than one file |
-| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (Vite base path, worker-only OPFS, font subsets). Do not "fix" these | Before touching package.json, configs, or tests |
+| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (Vite base path, worker-only OPFS, font subsets, warm-`dist/` builds). Do not "fix" these | Before touching package.json, configs, or tests |
 | [DECISIONS.md](DECISIONS.md) | Why things are the way they are. Do not undo these without the owner asking | Before proposing refactors |
 | [PLAN.md](PLAN.md) | Milestone plan (M0–M9 + Phases 2–3) | When starting new feature work |
 | [PROGRESS.md](PROGRESS.md) | What's done, what's next, known debt. **Update it when you complete a milestone** | Start and end of every work session |
@@ -23,12 +28,16 @@ on-device SQLite.
 ```bash
 npm install
 npm run dev                  # Vite dev server at http://localhost:5173/lifequest/
-npm test                     # vitest (engine unit tests — must stay green)
+npm test                     # vitest — 138 tests, must stay green
 npm run typecheck            # tsc --noEmit (must stay clean)
 npm run lint                 # eslint
-npm run build:web            # production build into dist/ (also writes .nojekyll + 404.html)
+rm -rf dist && npm run build:web   # production build (also writes .nojekyll + 404.html)
 npm run serve:web            # serve the built dist/ locally
 ```
+
+`rm -rf dist` before a build you intend to verify or ship: a build over a warm `dist/` can produce
+a different artifact from identical source, so the bundle you tested may not be the one you ship
+(GOTCHAS 39).
 
 Note the **`/lifequest/`** path in dev — `base` in `vite.config.ts` is unconditional so dev,
 preview, and production agree on asset URLs, the router basename, and the service-worker scope.
@@ -73,10 +82,33 @@ workaround is gone — don't reintroduce the headers. The app still **cannot run
 
 ## Status
 
-Phase 1 (MVP) is code-complete: all three task types, complete/undo/skip/snooze/archive, XP +
-character level, calendar view, dark glow-panel UI. Phase 1.5 added the stats dashboard, the
-simplified capture form, and categories with split XP. Phase 1.6 made it an installable web app,
-**live at https://gamedev1991.github.io/lifequest/** since 2026-07-30. Phase 1.7 (2026-08-02)
-removed Expo entirely and rebuilt the UI on React + Vite + Tailwind + Magic UI; Android/iOS are no
-longer targets (DECISIONS D20). Phase 2 (streaks, badges, skill dashboard) is next. See
-[PROGRESS.md](PROGRESS.md).
+**Phase 1 (MVP)** — complete: all three task types, complete/undo/skip/snooze/archive (no delete
+anywhere), XP + character level, calendar view, dark glow-panel UI.
+**Phase 1.5–1.6** — stats dashboard, simplified capture, categories with split XP, and the
+installable PWA, live since 2026-07-30.
+**Phase 1.7** (2026-08-02) — Expo removed entirely, UI rebuilt on React + Vite + Tailwind + Magic
+UI; Android/iOS dropped as targets (DECISIONS D20).
+**Phase 1.11–1.12** — touch latency fixed (862 idle animations → 0), then a full GSAP revamp.
+**Phase 2** — complete 2026-08-03: derived streaks, editable categories with a local icon library,
+a 30-badge engine + gallery with progress rings, and the skill dashboard.
+
+**Phase 3 is next**, starting with **JSON export/import** — OPFS holds the only copy of the data,
+and a durable-storage grant the browser can refuse is not a backup.
+
+### Known open question: iOS Safari
+
+A second user hit a hard startup failure on iPhone Safari (2026-08-03) — OPFS refused to open with
+an error that names no cause. iOS was scoped out earlier because the owner has no iOS device; that
+premise changed when the link was shared. **There is no WebKit in the build environment**, so
+nothing iOS-specific has been verified on the platform it targets. What shipped: a smaller
+sync-access-handle pool, one retry, and a failure screen that runs an OPFS probe *on the device*
+and reports which step fails. Whether iOS becomes supported is an open owner decision — see
+DECISIONS D41.
+
+## Troubleshooting a startup failure
+
+If the app shows **"Can't open your data"**, in order of likelihood: it's a private/incognito tab
+(on-device storage is off there), another tab already holds the database (only one at a time), or
+the device is out of storage. Tap **Try again** first — the underlying error is often transient.
+If it persists, tap **Diagnose**, then **Copy report**: that runs the real OPFS sequence and names
+the step that failed, which is worth far more than a screenshot of the message.
