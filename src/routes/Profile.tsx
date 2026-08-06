@@ -155,31 +155,52 @@ export default function Profile() {
       <RuneDivider label="Badges" />
 
       <Link to="/badges" className="block">
-        <SystemPanel innerClassName="flex items-center gap-3 px-4 py-4">
-          <div className="flex flex-1 items-center justify-between gap-1">
-            {shelf.map((s) => (
-              <div key={s.rule.key} className="flex flex-col items-center gap-1">
-                <BadgeCrest
-                  tier={s.rule.tier}
-                  group={s.rule.group}
-                  unlocked={s.unlocked}
-                  mystery={!s.unlocked && !!s.rule.hidden}
-                  size={44}
-                />
-                <span className="max-w-16 truncate font-display text-[9px] uppercase tracking-[0.1em] text-muted">
-                  {!s.unlocked && s.rule.hidden ? '???' : s.rule.name}
-                </span>
-              </div>
-            ))}
+        <SystemPanel innerClassName="flex flex-col gap-3 px-4 py-4">
+          <div className="flex items-center gap-3">
+            {/* Each crest carries its own progress ring, so the shelf answers "what am I
+                close to?" and not only "how many have I got?" — which the count already
+                said and which is the less useful of the two questions. */}
+            <div className="flex flex-1 items-start justify-between gap-1">
+              {shelf.map((s) => (
+                <div key={s.rule.key} className="flex flex-col items-center gap-1">
+                  <BadgeCrest
+                    tier={s.rule.tier}
+                    group={s.rule.group}
+                    unlocked={s.unlocked}
+                    mystery={!s.unlocked && !!s.rule.hidden}
+                    progress={s.progress}
+                    size={46}
+                  />
+                  <span className="max-w-16 truncate font-display text-[9px] uppercase tracking-[0.1em] text-muted">
+                    {!s.unlocked && s.rule.hidden ? '???' : s.rule.name}
+                  </span>
+                  {!s.unlocked && (
+                    <span className="font-display text-[9px] tabular-nums text-muted/70">
+                      {s.rule.hidden ? '—' : `${Math.min(s.value, s.rule.target)}/${s.rule.target}`}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-0.5 border-l border-edge/60 pl-3">
+              <span className="font-display text-2xl leading-none tabular-nums text-fg">
+                {badgesEarned}
+              </span>
+              <span className="font-display text-[9px] uppercase tracking-[0.16em] text-muted">
+                of {badgeStatuses.length}
+              </span>
+            </div>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-0.5 border-l border-edge/60 pl-3">
-            <span className="font-display text-2xl leading-none tabular-nums text-fg">
-              {badgesEarned}
-            </span>
-            <span className="font-display text-[9px] uppercase tracking-[0.16em] text-muted">
-              of {badgeStatuses.length}
-            </span>
-          </div>
+
+          <span className="h-1 w-full overflow-hidden rounded-full bg-bg-alt">
+            <span
+              className="block h-full rounded-full bg-linear-to-r from-accent to-accent-2"
+              style={{
+                width: `${badgeStatuses.length ? (badgesEarned / badgeStatuses.length) * 100 : 0}%`,
+                boxShadow: `0 0 8px ${colors.accent}`,
+              }}
+            />
+          </span>
         </SystemPanel>
       </Link>
 
