@@ -261,3 +261,23 @@ with `includes('Archived')`, which the unrelated **"Archived quests →"** link 
 Assert against structure (`[aria-label^="Restore "]`) rather than prose. When a test fails,
 suspect the test first: it is newer than the feature and has been run fewer times.
 
+## 39. `npm run build:web` over a warm `dist/` can differ from a clean build
+
+Checking the deploy showed the live bundle hash matching neither the previous release nor the
+local `dist/` — which reads exactly like "the deploy failed". It had not. `rm -rf dist && npm run
+build:web` on the *same commit* reproduced the live hash exactly, twice; the build is
+deterministic. What differed was that the earlier build had run over a non-empty `dist/`, and
+that produced a different artifact from the same source (Tailwind's scan is the likeliest
+culprit — the round had added a whole new screen's worth of classes).
+
+Consequences, both of which matter:
+
+- The **byte-verify against the live site is only meaningful from a clean build.** Comparing a
+  warm-build `dist/` to the deploy can report a false mismatch, and — worse — a false *match* is
+  conceivable in the other direction.
+- The build you browser-tested may not be the build you shipped. After the clean rebuild, the
+  in-browser checks were re-run against it rather than trusted from the earlier artifact.
+
+**Always `rm -rf dist` before the build you intend to verify or ship against.** This is GOTCHAS
+30 (stale `dist/`) in a subtler costume: there the directory was old, here it was merely warm.
+
