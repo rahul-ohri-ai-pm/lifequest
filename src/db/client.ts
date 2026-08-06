@@ -126,6 +126,51 @@ export function getDb(): Promise<SqlDatabase> {
   return dbPromise;
 }
 
+/**
+ * Ask the browser, in a worker, what it will actually allow — and report each step.
+ *
+ * Spun up on its own worker rather than reusing the app's: the case this exists for is the one
+ * where the app's worker has already failed to open the pool, and a diagnostic that shares the
+ * broken thing's fate is no diagnostic. Terminates itself either way.
+ *
+ * Never rejects. A failure screen that can itself fail is worse than no failure screen.
+ */
+export async function probeStorage(): Promise<string[]> {
+  const lines: string[] = [];
+  try {
+    lines.push(`ua: ${navigator.userAgent}`);
+  } catch {
+    /* ignore */
+  }
+  let worker: Worker | undefined;
+  try {
+    worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
+    const w = worker;
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
+      // Bounded, because a worker that never answers is exactly the shape of failure this is
+      // meant to describe.
+      const timer = setTimeout(() => reject(new Error('probe timed out after 8s')), 8000);
+      w.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+        clearTimeout(timer);
+        const res = event.data;
+        if (res.ok) resolve(res.rows ?? []);
+        else reject(new Error(res.error));
+      });
+      w.addEventListener('error', (event) => {
+        clearTimeout(timer);
+        reject(new Error(event.message || 'worker failed to start'));
+      });
+      w.postMessage({ kind: 'probe', id: 0 } as WorkerRequest);
+    });
+    lines.push(...rows.map(String));
+  } catch (error) {
+    lines.push(`probe: FAILED ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    worker?.terminate();
+  }
+  return lines;
+}
+
 // Dev-only: drop everything and re-run migrations from scratch (§9 Reset Database).
 // Order matters — child tables before the tables they reference.
 export async function resetDb(): Promise<SqlDatabase> {

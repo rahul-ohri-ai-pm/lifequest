@@ -162,6 +162,8 @@ old build against itself — GOTCHAS 30 again, third time this session.)
 
 | P8 — Badge progress and motion | ✅ Done (2026-08-03) | Owner: *"need the badges to have animations, i want the badges section to show progress for each badge as well."* Progress moved **into the crest**: a hexagonal ring around each badge, drawn with `pathLength={100}` so the dash maths is percentages and needs no `getTotalLength()` DOM measurement. It was a 2px hairline under the label, which is where you put a number you do not want read — and the Profile shelf had no progress at all, only a count. The shelf now carries a ring and an `n/target` per crest plus a collection bar; the gallery header gained a percentage, a filling bar and a `NumberTicker`. Motion, all one-shot (CONVENTIONS 13b): the collection bar fills, crests strike in staggered, **every ring draws from empty to its real value**, a glint travels once across each earned crest, near-complete badges (≥75%) get a single nudge, and the detail sheet's crest turns over on `rotateY` while its ring redraws. Asserted mid-flight — 14 of 30 rings still mid-draw at 420ms — and asserted settled: every ring lands within 0.5 of its computed target |
 
+| P9 — Startup failure made diagnosable | ✅ Done (2026-08-03) | A friend of the owner hit *"Could not open the local database"* on iPhone Safari. The message names no cause, and the screen it appeared on was a dead end — one paragraph, no retry, no console on a phone. Three changes, none of which commit to supporting iOS: **(1)** the sahpool VFS now opens with `initialCapacity: 3`, retrying at `1`, instead of the default 6 — the pool holds one sync access handle per slot open for the life of the page, and six at once is real pressure on an engine that just refused. Verified that an existing 6-slot pool still opens under the smaller setting (the VFS only applies `initialCapacity` to an empty pool) with every row intact. **(2)** A `StartupFailure` screen that leads with the fixable causes in likelihood order, and has a **Try again** button — the reported error calls itself *transient* and there was previously no way to retry but to know to pull-to-refresh. **(3)** A **Diagnose** button that runs the real OPFS sequence in a fresh worker and reports which step fails, with a copy button. Exercised against a genuine failure — the app served over a plain-HTTP LAN origin, where OPFS really is unavailable — and the probe named the wall. **Not verified on iOS: there is no WebKit in this environment** (DECISIONS D41) |
+
 **Phase 2 is complete.** Skills, streaks, badges and the skill dashboard all shipped and verified.
 
 **A rendering trap worth keeping.** The progress ring first carried `filter: drop-shadow(...)`
@@ -210,11 +212,17 @@ Verified. The range *math* is owned by the engine tests, which use dated rows.
   web is the *only* channel, this is the most valuable piece of missing coverage
 - **The live site has not been confirmed on the owner's real phone yet.** All passes have been
   headless Chromium. Not done until a quest survives a real close-and-reopen on the device.
-  **iOS Safari is explicitly not a concern** (owner confirmed 2026-08-02 that they own no iOS
-  device): the app is single-user by design (§2), so "browser support" collapses to one browser on
-  one phone. Don't spend effort on WebKit-specific OPFS quota, service-worker lifetime, or
-  home-screen storage-scoping differences — earlier notes here overstated that risk by reasoning
-  about a general audience this product does not have
+  **iOS Safari was scoped out on 2026-08-02** — the owner owns no iOS device and the app is
+  single-user by design (§2), so "browser support" collapsed to one browser on one phone.
+  **That premise changed on 2026-08-03**: the owner shared the link and a friend hit a hard
+  startup failure on iPhone Safari — *"Could not open the local database… (The operation failed
+  for an unknown transient reason (e.g. out of memory).)"* That parenthetical is WebKit's
+  wording for a `DOMException` it has no specific code for; it names no cause. **Whether iOS is
+  now a supported platform is an open owner decision**, not something to assume either way.
+  What shipped in response deliberately does not decide it: two safe mitigations and a
+  self-diagnosing failure screen (see below). **No WebKit is available in the build
+  environment** — only Chromium — so nothing iOS-specific here has been verified on the
+  platform it targets, and future sessions should not claim otherwise.
 - **Browser eviction is now requested against, but cannot be guaranteed.** OPFS is the only copy of
   every quest, completion and XP row (§2: no cloud, deliberately). `src/db/storage.ts` asks for
   durable storage at boot (D3 below), but the grant is the browser's call, not ours — Chrome

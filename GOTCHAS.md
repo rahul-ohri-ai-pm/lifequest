@@ -232,3 +232,32 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
     quest card, so ten cleared quests meant ten forever-running beams. §5 already said the beam is
     for "the one element that is *the* moment" — the performance rule and the design rule turned
     out to be the same rule. Beams now survive only on the Profile hero and the level-up overlay.
+
+## 36. An SVG filter on a *child* of `<svg>` paints a visible rectangle behind it
+
+The badge progress ring carried `filter: drop-shadow(...)` for glow. A filter applied to a path
+*inside* an `<svg>` establishes its own filter region, and Chromium rasterised that region as a
+perceptibly lighter rectangle behind every crest — thirty grey boxes in a grid of hexagons. It
+was also thirty extra filter passes. The same `drop-shadow` on the `<svg>` **root** is fine and
+is what the unlocked crest uses. Rule: filters go on the root element, not on a path within it.
+Only caught by zooming into a screenshot; every automated assertion passed.
+
+## 37. `document.body.innerText` can return a truncated subset of the page
+
+Three browser assertions failed against features that were working, because `innerText` returned
+only ~515 characters of a page whose `textContent` was 471 and whose visible text was far more —
+it silently omitted content that was rendered and visible. `innerText` is defined in terms of
+*rendering*, and in a fixed-height flex layout with a scrolling `<main>` it is not a reliable way
+to ask "is this string on the page". Use `textContent` in harnesses, and remember it returns the
+**source** casing — `text-transform: uppercase` labels match their lowercase source, not what the
+screen shows.
+
+## 38. Assertions that collide with the page's own text
+
+Two more harness failures in the same round, both self-inflicted: checking that a deleted
+category was gone with `textContent.includes('Guitar practice')` — which the success notice
+*"Guitar practice deleted"* satisfied — and checking that an archived section had disappeared
+with `includes('Archived')`, which the unrelated **"Archived quests →"** link matched forever.
+Assert against structure (`[aria-label^="Restore "]`) rather than prose. When a test fails,
+suspect the test first: it is newer than the feature and has been run fewer times.
+

@@ -5,6 +5,7 @@ import { LevelUpOverlay } from './components/system/LevelUpOverlay';
 import { BootSequence } from './components/system/BootSequence';
 import { StreakMoment } from './components/system/StreakMoment';
 import { BadgeMoment } from './components/system/BadgeMoment';
+import { StartupFailure } from './components/system/StartupFailure';
 import { CalendarIcon, ProfileIcon, StatsIcon, TodayIcon } from './components/icons';
 import { getDb } from './db/client';
 import { ensurePersistentStorage } from './db/storage';
@@ -214,13 +215,7 @@ export function App() {
     [pathname, ready]
   );
 
-  if (error) {
-    return (
-      <div className="grid h-dvh place-items-center bg-bg p-6">
-        <p className="max-w-sm text-center text-fg">Failed to start: {error}</p>
-      </div>
-    );
-  }
+  if (error) return <StartupFailure message={error} />;
 
   if (!ready) {
     return (
