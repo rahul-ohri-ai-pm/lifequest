@@ -224,3 +224,53 @@ export function weekStrip(
     };
   });
 }
+
+/**
+ * What happened to one quest on one day.
+ *
+ * `scheduledOutcomes` above answers the same question in aggregate; this answers it per row,
+ * which is what a screen needs in order to colour one. Kept here beside it so the two can
+ * never drift on the rule that matters most: **today is never `missed`**. An unfinished day is
+ * pending, not failed — §2's forgiving-progression goal, and the same rule the streak engine
+ * applies (a quest you have not got to yet at 3pm has not broken anything).
+ */
+export type QuestDayState =
+  | 'done' // a completion exists on that day
+  | 'skipped' // deliberately not done — logged, and honest
+  | 'missed' // a past day that was scheduled or due, with neither
+  | 'pending' // today, still open
+  | 'upcoming'; // a future day
+
+export function questDayState(
+  task: Task,
+  dayKey: string,
+  todayKey: string,
+  completedTaskIds: ReadonlySet<string>,
+  skippedTaskIds: ReadonlySet<string>
+): QuestDayState {
+  if (completedTaskIds.has(task.id)) return 'done';
+  if (skippedTaskIds.has(task.id)) return 'skipped';
+  if (dayKey > todayKey) return 'upcoming';
+  if (dayKey === todayKey) return 'pending';
+
+  // A due date is an explicit statement by the user that this was owed on this day, so it
+  // counts even if the quest was created afterwards ("I should have done this on Tuesday").
+  if (task.dueAt && dayKeyFor(new Date(task.dueAt)) === dayKey) return 'missed';
+
+  // A *schedule*, by contrast, is a standing rule — and a rule cannot be broken before it
+  // existed. Blaming a habit for the days before you created it would make every new habit
+  // start life in the red, which is exactly the punishing read §2 rules out.
+  if (dayKeyFor(new Date(task.createdAt)) > dayKey) return 'upcoming';
+  return 'missed';
+}
+
+/**
+ * Is this todo past its due date and still open? Habits are excluded: a habit's misses are a
+ * per-day question that `questDayState` answers, whereas a todo has exactly one deadline and
+ * stays actionable after it — "overdue", not "failed".
+ */
+export function isOverdue(task: Task, completedToday: boolean, today: Date): boolean {
+  if (task.schedule || task.status !== 'active' || !task.dueAt) return false;
+  if (completedToday) return false;
+  return dayKeyFor(new Date(task.dueAt)) < dayKeyFor(today);
+}

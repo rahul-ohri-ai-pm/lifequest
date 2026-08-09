@@ -20,6 +20,10 @@ export const colors = {
   /** Gold. Shares the Epic tier's value on purpose: streaks and Epic quests are the two
    *  "rarest thing on the screen" signals, and they should read as the same signal. */
   epic: '#F5B942',
+  /** Mirrors --color-danger in index.css. Reserved for the alert panel tone and for the
+   *  missed-quest marker — §2's forgiving-progression goal means it marks a *fact*, never a
+   *  scolding, so it appears as an outline or a pip and never as a filled row. */
+  danger: '#E5484D',
 } as const;
 
 // Rarity/difficulty accent ramp (Trivial→Epic), echoing RPG item-rarity coloring

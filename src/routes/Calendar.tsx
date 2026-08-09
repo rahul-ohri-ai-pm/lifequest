@@ -6,20 +6,24 @@ import { RuneDivider } from '../components/system/RuneDivider';
 import { monthGrid } from '../engine/calendar';
 import { dateFromDayKey, dayKeyFor, dayWindow, isScheduledDay } from '../engine/time';
 import { getCompletionsBetween } from '../db/queries/completions';
+import { getAllSkips } from '../db/queries/skips';
+import { questDayState } from '../engine/stats';
 import { useTaskStore } from '../store/useTaskStore';
 import { resyncDerived } from '../store/resync';
 import { CheckIcon } from '../components/icons';
 import { CategoryIcon } from '../components/categoryIcons';
 import { useSkillStore } from '../store/useSkillStore';
 import { cn } from '../lib/utils';
-import { difficultyColors } from '../constants/theme';
-import type { Completion, Task } from '../types';
+import { colors, difficultyColors } from '../constants/theme';
+import type { Completion, Skip, Task } from '../types';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+const STATE_TAG = 'shrink-0 font-display text-[10px] uppercase tracking-[0.16em]';
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -60,8 +64,28 @@ export default function Calendar() {
   // or due task", which — with a single daily habit — put an identical dot on every square
   // of every month, past and future, so the marker carried no information at all.
   // Completion is real history; a schedule is not.
-  const [monthCompletionDays, setMonthCompletionDays] = useState<Set<string>>(new Set());
+  // Completions in the visible grid, keyed by day. One state rather than two (there used to be
+  // a separate Set of "days with any completion") — the same information, and two states that
+  // can disagree is a bug waiting to be written.
+  const [monthCompletionsByDay, setMonthCompletionsByDay] = useState<Map<string, Set<string>>>(
+    new Map()
+  );
   const [monthRevision, setMonthRevision] = useState(0);
+  // Every skip, not a windowed read: a skip is one row per deliberate "not today", so the whole
+  // table is smaller than a week of completions. Both the month grid and the day list need it —
+  // without it, "skipped" and "missed" are indistinguishable, which is the distinction §7 went
+  // out of its way to record.
+  const [allSkips, setAllSkips] = useState<Skip[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAllSkips().then((rows) => {
+      if (!cancelled) setAllSkips(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [monthRevision]);
 
   useEffect(() => {
     const first = grid[0]?.[0];
@@ -73,12 +97,48 @@ export default function Calendar() {
     let cancelled = false;
     void getCompletionsBetween(startIso, endIso).then((rows) => {
       if (cancelled) return;
-      setMonthCompletionDays(new Set(rows.map((c) => dayKeyFor(new Date(c.completedAt)))));
+      const byDay = new Map<string, Set<string>>();
+      for (const c of rows) {
+        const key = dayKeyFor(new Date(c.completedAt));
+        let set = byDay.get(key);
+        if (!set) byDay.set(key, (set = new Set()));
+        set.add(c.taskId);
+      }
+      setMonthCompletionsByDay(byDay);
     });
     return () => {
       cancelled = true;
     };
   }, [grid, monthRevision]);
+
+  const skipsByDay = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const s of allSkips) {
+      let set = map.get(s.day);
+      if (!set) map.set(s.day, (set = new Set()));
+      set.add(s.taskId);
+    }
+    return map;
+  }, [allSkips]);
+
+  // Days in the past where something was scheduled or due and neither done nor skipped.
+  // Computed for the visible grid only, from data already in memory.
+  const missedDays = useMemo(() => {
+    const out = new Set<string>();
+    for (const week of grid) {
+      for (const cell of week) {
+        if (cell.dayKey >= todayKey) continue;
+        const done = monthCompletionsByDay.get(cell.dayKey) ?? new Set<string>();
+        const skipped = skipsByDay.get(cell.dayKey) ?? new Set<string>();
+        const missed = tasksForDay(cell.dayKey).some(
+          (t) => questDayState(t, cell.dayKey, todayKey, done, skipped) === 'missed'
+        );
+        if (missed) out.add(cell.dayKey);
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grid, tasks, todayKey, monthCompletionsByDay, skipsByDay]);
 
   // A future/today square with work planned gets a hollow marker, so "planned" and "done"
   // are visually distinct rather than the same blue dot.
@@ -137,6 +197,7 @@ export default function Calendar() {
 
   const selectedTasks = tasksForDay(selected);
   const completedIds = new Set(dayCompletions.map((c) => c.taskId));
+  const selectedSkipIds = skipsByDay.get(selected) ?? new Set<string>();
 
   return (
     <div className="p-4 pb-8">
@@ -185,12 +246,20 @@ export default function Calendar() {
                 )}
               >
                 {cell.dayOfMonth}
-                {/* Filled = something was completed that day (real history).
-                    Hollow = work planned for today/a future day, nothing logged yet. */}
-                {monthCompletionDays.has(cell.dayKey) ? (
+                {/* Three markers, in priority order. Filled blue = something was completed
+                    that day (real history). Hollow red = a past day that had scheduled or due
+                    work and nothing logged against it. Hollow grey = planned for today or
+                    later. A day can be both completed and missed — the blue wins, because
+                    "you did something" is the truer headline for a day. */}
+                {monthCompletionsByDay.has(cell.dayKey) ? (
                   <span
                     className="absolute bottom-1 size-[5px] rounded-full bg-accent"
                     style={{ boxShadow: '0 0 5px var(--color-accent)' }}
+                  />
+                ) : missedDays.has(cell.dayKey) ? (
+                  <span
+                    className="absolute bottom-1 size-[5px] rounded-full border"
+                    style={{ borderColor: colors.danger }}
                   />
                 ) : dayIsPlanned.get(cell.dayKey) ? (
                   <span className="absolute bottom-1 size-[5px] rounded-full border border-muted" />
@@ -273,22 +342,45 @@ export default function Calendar() {
         </p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {selectedTasks.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => void navigate(`/task/${item.id}`)}
-                className="notch [--notch:6px] flex w-full items-center gap-2 border border-edge bg-panel p-2 text-left transition-colors hover:bg-panel-raised"
-              >
-                <span
-                  className="size-2 shrink-0 rotate-45"
-                  style={{ backgroundColor: difficultyColors[item.difficulty] }}
-                />
-                <span className="flex-1 truncate text-sm text-fg">{item.title}</span>
-                {completedIds.has(item.id) && <CheckIcon size={15} className="shrink-0 text-accent" />}
-              </button>
-            </li>
-          ))}
+          {selectedTasks.map((item) => {
+            const state = questDayState(item, selected, todayKey, completedIds, selectedSkipIds);
+            const missed = state === 'missed';
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => void navigate(`/task/${item.id}`)}
+                  className={cn(
+                    'notch [--notch:6px] flex w-full items-center gap-2 border bg-panel p-2 text-left transition-colors hover:bg-panel-raised',
+                    missed ? 'border-danger/50' : 'border-edge'
+                  )}
+                >
+                  {/* The difficulty pip is the row's colour normally; on a missed day it is
+                      the *state* that matters more, so the pip carries that instead. */}
+                  <span
+                    className="size-2 shrink-0 rotate-45"
+                    style={{
+                      backgroundColor: missed ? colors.danger : difficultyColors[item.difficulty],
+                      boxShadow: missed ? `0 0 6px ${colors.danger}` : undefined,
+                    }}
+                  />
+                  <span
+                    className={cn(
+                      'flex-1 truncate text-sm',
+                      state === 'skipped' ? 'text-muted' : 'text-fg'
+                    )}
+                  >
+                    {item.title}
+                  </span>
+                  {state === 'done' && <CheckIcon size={15} className="shrink-0 text-accent" />}
+                  {state === 'skipped' && (
+                    <span className={`${STATE_TAG} text-muted`}>Skipped</span>
+                  )}
+                  {missed && <span className={`${STATE_TAG} text-danger`}>Missed</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

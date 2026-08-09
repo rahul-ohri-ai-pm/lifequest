@@ -7,6 +7,8 @@ import {
   skillBreakdown,
   topTasks,
   weekStrip,
+  questDayState,
+  isOverdue,
   xpOnDay,
 } from '../stats';
 import type { Completion, Skip, Task } from '../../types';
@@ -249,5 +251,119 @@ describe('weekStrip', () => {
     const week = weekStrip(new Set(), new Date(2026, 3, 1));
     expect(week.map((d) => d.dayOfMonth)).toEqual([30, 31, 1, 2, 3, 4, 5]);
     expect(week[0].dayKey).toBe('2026-03-30');
+  });
+});
+
+describe('questDayState', () => {
+  const today = '2026-03-11';
+  // Created well before every day under test unless a case says otherwise.
+  const habit = (over: Partial<Task> = {}): Task =>
+    ({
+      id: 'h1',
+      title: 'Habit',
+      notes: null,
+      type: 'habit',
+      difficulty: 'medium',
+      schedule: { freq: 'daily' },
+      targetCount: null,
+      dueAt: null,
+      reminderAt: null,
+      status: 'active',
+      createdAt: new Date(2026, 0, 1).toISOString(),
+      updatedAt: new Date(2026, 0, 1).toISOString(),
+      ...over,
+    }) as Task;
+
+  const none = new Set<string>();
+  const mine = new Set(['h1']);
+
+  it('reports a completion as done, whatever the day', () => {
+    expect(questDayState(habit(), '2026-03-01', today, mine, none)).toBe('done');
+    expect(questDayState(habit(), today, today, mine, none)).toBe('done');
+  });
+
+  it('prefers done over skipped when somehow both exist', () => {
+    expect(questDayState(habit(), '2026-03-01', today, mine, mine)).toBe('done');
+  });
+
+  it('reports a deliberate skip distinctly from a miss', () => {
+    expect(questDayState(habit(), '2026-03-01', today, none, mine)).toBe('skipped');
+  });
+
+  // The rule this whole function exists to protect (§2, and the streak engine agrees).
+  it('never calls today missed — an open day is pending', () => {
+    expect(questDayState(habit(), today, today, none, none)).toBe('pending');
+  });
+
+  it('calls an empty past day missed', () => {
+    expect(questDayState(habit(), '2026-03-10', today, none, none)).toBe('missed');
+  });
+
+  it('does not blame a quest for days before it existed', () => {
+    const born = habit({ createdAt: new Date(2026, 2, 5).toISOString() });
+    expect(questDayState(born, '2026-03-04', today, none, none)).toBe('upcoming');
+    expect(questDayState(born, '2026-03-05', today, none, none)).toBe('missed');
+  });
+
+  it('treats future days as upcoming, not missed', () => {
+    expect(questDayState(habit(), '2026-03-12', today, none, none)).toBe('upcoming');
+  });
+
+  // A schedule is a standing rule and cannot be broken before it existed; a due date is an
+  // explicit "this was owed on this day", so backdating one is a statement, not an accident.
+  it('honours an explicit past due date even on a quest created later', () => {
+    const late = habit({
+      schedule: null,
+      type: 'todo',
+      createdAt: new Date(2026, 2, 10).toISOString(),
+      dueAt: new Date(2026, 2, 4, 12).toISOString(),
+    });
+    expect(questDayState(late, '2026-03-04', today, none, none)).toBe('missed');
+  });
+});
+
+describe('isOverdue', () => {
+  const now = new Date(2026, 2, 11);
+  const todo = (over: Partial<Task> = {}): Task =>
+    ({
+      id: 't1',
+      title: 'Todo',
+      notes: null,
+      type: 'todo',
+      difficulty: 'medium',
+      schedule: null,
+      targetCount: null,
+      dueAt: null,
+      reminderAt: null,
+      status: 'active',
+      createdAt: new Date(2026, 0, 1).toISOString(),
+      updatedAt: new Date(2026, 0, 1).toISOString(),
+      ...over,
+    }) as Task;
+
+  it('is false without a due date', () => {
+    expect(isOverdue(todo(), false, now)).toBe(false);
+  });
+
+  it('is true for a past due date that is still open', () => {
+    expect(isOverdue(todo({ dueAt: new Date(2026, 2, 9, 12).toISOString() }), false, now)).toBe(true);
+  });
+
+  it('is false on the due day itself — due today is not late', () => {
+    expect(isOverdue(todo({ dueAt: new Date(2026, 2, 11, 23).toISOString() }), false, now)).toBe(false);
+  });
+
+  it('is false once it has been completed', () => {
+    expect(isOverdue(todo({ dueAt: new Date(2026, 2, 9).toISOString() }), true, now)).toBe(false);
+  });
+
+  it('ignores habits — their misses are a per-day question', () => {
+    const h = todo({ dueAt: new Date(2026, 2, 9).toISOString(), schedule: { freq: 'daily' } });
+    expect(isOverdue(h, false, now)).toBe(false);
+  });
+
+  it('ignores archived quests', () => {
+    const a = todo({ dueAt: new Date(2026, 2, 9).toISOString(), status: 'archived' });
+    expect(isOverdue(a, false, now)).toBe(false);
   });
 });

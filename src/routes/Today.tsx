@@ -8,6 +8,7 @@ import { useSkillStore } from '../store/useSkillStore';
 import { useStreakStore } from '../store/useStreakStore';
 import { resyncDerived } from '../store/resync';
 import { isScheduledDay } from '../engine/time';
+import { isOverdue } from '../engine/stats';
 import { splitSkillXp, xpForDifficulty } from '../engine/xp';
 import { gsap, useGsap } from '../lib/gsap';
 import type { Task } from '../types';
@@ -141,6 +142,7 @@ export default function Today() {
               <TaskCard
                 task={task}
                 reward={rewardFor(task)}
+                overdue={isOverdue(task, completedTaskIds.has(task.id), today)}
                 streak={streaksByTask[task.id]?.state.current}
                 done={isDone(task)}
                 hasCompletionToday={completedTaskIds.has(task.id)}

@@ -47,6 +47,8 @@ interface Props {
   reward: Reward;
   /** Per-habit streak length; undefined for tasks that cannot have one (§7). */
   streak?: number;
+  /** Past its due date and still open. A todo only — see engine `isOverdue`. */
+  overdue?: boolean;
   onComplete(task: Task): void;
   onUndo(task: Task): void;
   onSkip(task: Task): void;
@@ -83,6 +85,7 @@ export function TaskCard({
   progressToday,
   reward,
   streak,
+  overdue = false,
   onComplete,
   onUndo,
   onSkip,
@@ -142,7 +145,14 @@ export function TaskCard({
       {/* Category spine — the one place colour varies, so a list is scannable at a glance. */}
       <div
         className="w-[3px] shrink-0"
-        style={{ backgroundColor: tint, boxShadow: done ? `0 0 8px ${tint}` : undefined }}
+        style={{
+          backgroundColor: overdue && !inactive ? colors.danger : tint,
+          boxShadow: done
+            ? `0 0 8px ${tint}`
+            : overdue && !inactive
+              ? `0 0 8px ${colors.danger}`
+              : undefined,
+        }}
       />
 
       <div className="grid w-14 shrink-0 place-items-center">
@@ -179,6 +189,15 @@ export function TaskCard({
               {p}
             </span>
           ))}
+
+          {/* Marked, not scolded. §2 rules out a punishing system, so an overdue quest gets a
+              tag and a red spine — the same weight the streak flame carries — rather than a
+              red row or a shrinking timer. It states a fact you may have lost track of. */}
+          {overdue && !inactive && (
+            <span className="font-display text-[10px] uppercase tracking-[0.14em] text-danger">
+              Overdue
+            </span>
+          )}
 
           {streak != null && streak > 0 && (
             <span
