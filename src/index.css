@@ -21,6 +21,8 @@
   --color-fg: #e6e9f2;
   --color-muted: #8a93a8;
   --color-danger: #e5484d;
+  /* Skipped-quest marker. See constants/theme.ts for why it is teal and not amber. */
+  --color-skipped: #2dd4bf;
 
   /* Rarity/difficulty ramp (Trivial→Epic), echoing RPG item-rarity coloring */
   --color-trivial: #6b7280;

@@ -281,3 +281,29 @@ Consequences, both of which matter:
 **Always `rm -rf dist` before the build you intend to verify or ship against.** This is GOTCHAS
 30 (stale `dist/`) in a subtler costume: there the directory was old, here it was merely warm.
 
+## 40. OPFS `removeEntry` fails while a sync access handle is open
+
+Deleting the sahpool directory throws **`NoModificationAllowedError`** for as long as anything
+holds a `FileSystemSyncAccessHandle` on a file inside it — and the sahpool VFS holds one per
+pool file for the life of the worker. Measured in Chromium: handle held → `NoModificationAllowedError`;
+after `worker.terminate()` plus ~150ms → `removed`.
+
+Two consequences for any "reset local data" path:
+
+- **Terminate the worker first.** A reset that runs alongside the live worker deletes nothing.
+- **Never treat a blocked delete as success.** The first version caught the error, resolved, and
+  reloaded — so the user saw the identical failure screen and would reasonably conclude the
+  button did nothing. It now throws with an actionable message.
+
+Note also that the directory is `.lifequest-pool` — a leading dot, since sqlite-wasm derives it
+as `"." + vfsName`. Both spellings are attempted, because guessing wrong here leaves the user
+with no second option.
+
+## 41. Every path under the SPA base boots the app
+
+`404.html` is the GitHub Pages SPA fallback, so `/lifequest/anything` serves the app. A test that
+navigates to a "blank" path under the base to tear down the worker instead **re-launches the app
+and reopens the database** — which is exactly what it was trying to avoid. Use a path outside the
+base, or `about:blank` (note that its origin is opaque, so origin-scoped storage is not visible
+from there).
+

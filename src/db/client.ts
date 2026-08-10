@@ -15,9 +15,16 @@ import type { WorkerRequest, WorkerRequestBody, WorkerResponse } from './sqlite.
 // database is not simply a local object.
 
 let dbPromise: Promise<SqlDatabase> | null = null;
+// The live worker, kept at module scope for exactly one reason: `resetLocalData` has to be able
+// to terminate it. The sahpool VFS holds a sync access handle on every file it owns, and an open
+// handle makes `removeEntry` throw NoModificationAllowedError — so a reset that leaves this
+// worker running deletes nothing. That includes a *partly* opened pool, which is precisely the
+// state the reset exists to clean up.
+let activeWorker: Worker | null = null;
 
 function connect(): SqlDatabase {
   const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
+  activeWorker = worker;
 
   let nextId = 0;
   const pending = new Map<number, { resolve(rows: unknown[]): void; reject(error: Error): void }>();
@@ -169,6 +176,44 @@ export async function probeStorage(): Promise<string[]> {
     worker?.terminate();
   }
   return lines;
+}
+
+/**
+ * Delete the on-device database directory. **Destructive and unrecoverable** — see the worker's
+ * `resetLocalData` for why it exists and when it is allowed to run.
+ *
+ * Its own worker, for the same reason as `probeStorage`: the app's worker may be wedged on a
+ * pool that will not open, and it holds sync access handles that would block the delete anyway.
+ */
+export async function resetLocalData(): Promise<string[]> {
+  // Terminating first is not tidiness, it is the whole operation working: measured, an open
+  // pool makes the delete fail with NoModificationAllowedError.
+  activeWorker?.terminate();
+  activeWorker = null;
+  dbPromise = null;
+  // A beat for the browser to release the handles the terminated worker was holding.
+  await new Promise((r) => setTimeout(r, 150));
+
+  const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
+  try {
+    return await new Promise<string[]>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('reset timed out after 8s')), 8000);
+      worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+        clearTimeout(timer);
+        const res = event.data;
+        if (res.ok) resolve((res.rows ?? []).map(String));
+        else reject(new Error(res.error));
+      });
+      worker.addEventListener('error', (event) => {
+        clearTimeout(timer);
+        reject(new Error(event.message || 'worker failed to start'));
+      });
+      worker.postMessage({ kind: 'reset', id: 0 } as WorkerRequest);
+    });
+  } finally {
+    worker.terminate();
+    dbPromise = null;
+  }
 }
 
 // Dev-only: drop everything and re-run migrations from scratch (§9 Reset Database).

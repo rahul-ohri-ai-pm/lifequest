@@ -352,17 +352,19 @@ export default function Calendar() {
                   onClick={() => void navigate(`/task/${item.id}`)}
                   className={cn(
                     'notch [--notch:6px] flex w-full items-center gap-2 border bg-panel p-2 text-left transition-colors hover:bg-panel-raised',
-                    missed ? 'border-danger/50' : 'border-edge'
+                    missed && 'border-danger/50',
+                    state === 'skipped' && 'border-skipped/40',
+                    !missed && state !== 'skipped' && 'border-edge'
                   )}
                 >
-                  {/* The difficulty pip is the row's colour normally; on a missed day it is
-                      the *state* that matters more, so the pip carries that instead. */}
+                  {/* The pip always carries *difficulty*, never state. An earlier version
+                      overrode it with the state colour, which put danger red into the same 8px
+                      slot as the five-colour rarity ramp — and red↔Trivial grey scores CVD
+                      ΔE 7.5, under target. State lives on the border and the tag instead, where
+                      it competes with nothing and is always spelled out in words (D46). */}
                   <span
                     className="size-2 shrink-0 rotate-45"
-                    style={{
-                      backgroundColor: missed ? colors.danger : difficultyColors[item.difficulty],
-                      boxShadow: missed ? `0 0 6px ${colors.danger}` : undefined,
-                    }}
+                    style={{ backgroundColor: difficultyColors[item.difficulty] }}
                   />
                   <span
                     className={cn(
@@ -374,7 +376,7 @@ export default function Calendar() {
                   </span>
                   {state === 'done' && <CheckIcon size={15} className="shrink-0 text-accent" />}
                   {state === 'skipped' && (
-                    <span className={`${STATE_TAG} text-muted`}>Skipped</span>
+                    <span className={`${STATE_TAG} text-skipped`}>Skipped</span>
                   )}
                   {missed && <span className={`${STATE_TAG} text-danger`}>Missed</span>}
                 </button>

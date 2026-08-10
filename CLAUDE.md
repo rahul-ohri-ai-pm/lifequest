@@ -366,11 +366,19 @@ there's no growing image/asset budget as the app grows.
     Trivial = gray (`#6B7280`), Easy = green (`#34D399`), Medium = blue (`#4C8DFF`),
     Hard = violet (`#8B5CF6`), Epic = gold (`#F5B942`)
   - Text: off-white (`#E6E9F2`) primary, muted slate (`#8A93A8`) secondary
+  - Skipped (`#2DD4BF`, teal): a deliberate "not today". A skip is a *choice*, not a failure —
+    §7 logs it in its own table for that reason — so it never shares the danger colour. Teal
+    rather than the intuitive amber/orange because orange↔danger measures ΔE 11.3 in normal
+    vision (9.8 deutan), under the 15 floor; teal scores 35.8/17.5 (DECISIONS D46)
   - Danger/miss (`#E5484D`): the alert panel tone, and the marker for a **missed** scheduled
     day or an **overdue** quest. §2 forbids a punishing system, so this colour states a fact and
     never scolds: it appears as a pip, an outline or a small tag — never a filled row, never a
     countdown. **Today is never marked missed** (an open day is pending, not failed), which is
-    the same rule the streak engine applies
+    the same rule the streak engine applies.
+    **State colours never overwrite identity colours** — the difficulty pip and the category
+    spine keep their own meaning, and state lives on the tag and the panel edge. Overloading one
+    element with both forces the state colour to survive next to five rarity colours and every
+    category colour the user might pick, which is a fight it loses (D46)
 - **Typography**: one display font for headers, numbers, and level-up moments (a geometric sci-fi
   face — e.g. Orbitron or Rajdhani; load only Regular + Bold, nothing else), system font
   (San Francisco / Roboto) for body text and everything read at length. Never bundle a full font

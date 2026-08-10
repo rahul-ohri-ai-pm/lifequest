@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SystemPanel } from './SystemPanel';
-import { probeStorage } from '../../db/client';
+import { probeStorage, resetLocalData } from '../../db/client';
 import { colors } from '../../constants/theme';
 
 // The screen that shows when the database will not open.
@@ -13,8 +13,12 @@ import { colors } from '../../constants/theme';
 //  1. **Retry.** The underlying error described itself as transient, and a full reload rebuilds
 //     the worker from scratch — the single most likely thing to help, and previously impossible
 //     without the user knowing to pull-to-refresh.
-//  2. **Lead with the fixable cause.** "You may be in a private tab" is actionable; "OPFS"
-//     is not.
+//  2. **Lead with the fixable cause** — and with the *right* one. The first version led with
+//     "you may be in a private tab", which turned out to be exactly backwards: the one real
+//     report of this failure was on iOS Safari, and the same link **worked** in a private tab.
+//     That is the signature of broken local state, not a permissions block, because a private
+//     tab starts with an empty storage bucket. The order below now reflects that evidence
+//     rather than my first guess.
 //  3. **Ask the device.** The diagnostics run the same OPFS steps the app does and report
 //     which one fails, so a screenshot becomes a diagnosis instead of a guess.
 
@@ -26,12 +30,27 @@ export function StartupFailure({ message }: Props) {
   const [report, setReport] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Two-step, deliberately. This deletes everything and cannot be undone, so it must not be
+  // reachable by one stray tap on a screen the user is already frustrated with.
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const runProbe = () => {
     setBusy(true);
     void probeStorage()
       .then(setReport)
       .finally(() => setBusy(false));
+  };
+
+  const doReset = () => {
+    setResetting(true);
+    void resetLocalData()
+      .then(() => location.reload())
+      .catch((e: unknown) => {
+        setReport([`reset failed: ${e instanceof Error ? e.message : String(e)}`]);
+        setResetting(false);
+        setConfirmingReset(false);
+      });
   };
 
   const copy = () => {
@@ -65,16 +84,16 @@ export function StartupFailure({ message }: Props) {
         </p>
         <ul className="flex list-disc flex-col gap-1.5 pl-4 text-sm leading-relaxed text-muted">
           <li>
-            <span className="text-fg">A private / incognito tab.</span> On-device storage is
-            switched off there. Open it in a normal tab.
-          </li>
-          <li>
             <span className="text-fg">Another tab already has it open.</span> Only one at a time
-            — close the others.
+            — close the others and tap Try again.
           </li>
           <li>
             <span className="text-fg">The device is low on storage.</span> Free some space and
             try again.
+          </li>
+          <li>
+            <span className="text-fg">The local database got into a bad state.</span> If the same
+            link works in a private tab but not here, this is it — and Reset below is the fix.
           </li>
         </ul>
 
@@ -94,6 +113,44 @@ export function StartupFailure({ message }: Props) {
           >
             {busy ? 'Checking…' : 'Diagnose'}
           </button>
+        </div>
+
+        {/* Last resort, and labelled as one. Only offered here — on a screen that exists
+            because the data is already unreachable — never anywhere the app is working. */}
+        <div className="border-t border-edge/60 pt-3">
+          {!confirmingReset ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingReset(true)}
+              className="font-display text-[11px] uppercase tracking-[0.16em] text-muted transition-colors hover:text-danger"
+            >
+              Reset local data…
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm leading-relaxed text-danger">
+                This deletes every quest, completion and XP point on this device. There is no
+                backup and no undo. Only do this if the app has never worked here.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={doReset}
+                  disabled={resetting}
+                  className="notch [--notch:6px] flex-1 border-2 border-danger px-3 py-2 font-display text-sm uppercase tracking-[0.16em] text-danger transition-colors hover:bg-danger/15"
+                >
+                  {resetting ? 'Erasing…' : 'Erase and restart'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReset(false)}
+                  className="notch [--notch:6px] border border-edge px-3 py-2 font-display text-sm uppercase tracking-[0.16em] text-muted"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <details className="pt-1">

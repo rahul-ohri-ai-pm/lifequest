@@ -65,10 +65,9 @@ const typeIcon: Record<TaskType, typeof TodoIcon> = {
 
 // Metadata is shown only when it says something. Every task defaults to medium (Phase 1.5 hid
 // the difficulty picker), so printing "Medium" on every row was five identical lines of noise.
-function metaParts(task: Task, skippedToday: boolean): string[] {
+function metaParts(task: Task): string[] {
   const parts: string[] = [typeLabel[task.type]];
   if (task.difficulty !== 'medium') parts.push(task.difficulty);
-  if (skippedToday) parts.push('skipped');
   return parts;
 }
 
@@ -96,7 +95,7 @@ export function TaskCard({
   const row = useRef<HTMLDivElement | null>(null);
   const inactive = done || skippedToday;
   const isCounted = task.type === 'counted' && task.targetCount != null;
-  const parts = metaParts(task, skippedToday);
+  const parts = metaParts(task);
   // Untagged quests have no category to show, so they fall back to their type mark.
   const TypeIcon = typeIcon[task.type];
   const untagged = reward.label === 'XP';
@@ -138,21 +137,18 @@ export function TaskCard({
     <SystemPanel
       glow={done}
       brackets={done}
-      className={cn('transition-opacity', skippedToday && 'opacity-50')}
+      // The panel edge carries *state*; the spine keeps carrying the category. Overloading one
+      // element with both meant the state colour had to survive next to every category colour
+      // the user might pick, which is a fight it cannot win (D46).
+      tone={overdue && !inactive ? 'alert' : 'default'}
+      className={cn('transition-opacity', skippedToday && 'opacity-70')}
       innerClassName="flex items-stretch overflow-hidden"
       rootRef={row}
     >
       {/* Category spine — the one place colour varies, so a list is scannable at a glance. */}
       <div
         className="w-[3px] shrink-0"
-        style={{
-          backgroundColor: overdue && !inactive ? colors.danger : tint,
-          boxShadow: done
-            ? `0 0 8px ${tint}`
-            : overdue && !inactive
-              ? `0 0 8px ${colors.danger}`
-              : undefined,
-        }}
+        style={{ backgroundColor: tint, boxShadow: done ? `0 0 8px ${tint}` : undefined }}
       />
 
       <div className="grid w-14 shrink-0 place-items-center">
@@ -191,11 +187,20 @@ export function TaskCard({
           ))}
 
           {/* Marked, not scolded. §2 rules out a punishing system, so an overdue quest gets a
-              tag and a red spine — the same weight the streak flame carries — rather than a
-              red row or a shrinking timer. It states a fact you may have lost track of. */}
+              tag and a red panel edge — the same weight the streak flame carries — rather than
+              a red row or a shrinking timer. It states a fact you may have lost track of. */}
           {overdue && !inactive && (
             <span className="font-display text-[10px] uppercase tracking-[0.14em] text-danger">
               Overdue
+            </span>
+          )}
+
+          {/* Skipped is a *choice*, not a failure — §7 logs it in its own table for exactly
+              that reason, and there is even a badge for using it honestly. So it reads teal,
+              clearly apart from the danger red a miss gets. */}
+          {skippedToday && (
+            <span className="font-display text-[10px] uppercase tracking-[0.14em] text-skipped">
+              Skipped
             </span>
           )}
 

@@ -15,8 +15,9 @@ export type WorkerRequestBody =
   | { kind: 'exec'; sql: string }
   | { kind: 'run'; sql: string; params: SqlValue[] }
   | { kind: 'all'; sql: string; params: SqlValue[] }
-  // Answered without touching the pool — see `probeStorage`.
-  | { kind: 'probe' };
+  // Answered without touching the pool — see `probeStorage` and `resetLocalData`.
+  | { kind: 'probe' }
+  | { kind: 'reset' };
 
 export type WorkerRequest = WorkerRequestBody & { id: number };
 
@@ -144,10 +145,61 @@ async function probeStorage(): Promise<string[]> {
   return out;
 }
 
+/**
+ * Delete the sahpool directory outright.
+ *
+ * **This destroys every quest, completion and XP row, and there is no server to restore from.**
+ * It exists for one situation: the pool will not open at all, so the data is already
+ * unreachable and the app cannot start. A second user hit exactly that on iOS — and the same
+ * link worked in a private tab, which is the signature of broken *local state* rather than a
+ * permissions problem, since a private tab starts with an empty storage bucket.
+ *
+ * D42 still stands: `clearOnInit` must never be an automatic recovery step. The difference here
+ * is consent — this runs only when a user has read a warning and confirmed, never on its own.
+ *
+ * The directory name is `.` + the VFS name (sqlite-wasm derives it that way), but both spellings
+ * are removed because getting this wrong would leave the user stuck with no second option.
+ */
+async function resetLocalData(): Promise<string[]> {
+  const out: string[] = [];
+  const root = await (globalThis as unknown as { navigator: Navigator }).navigator.storage.getDirectory();
+  let removed = false;
+  let blocked: string | null = null;
+
+  // The real directory is `.` + the VFS name; both spellings are tried because getting this
+  // wrong would leave the user stuck with no second option.
+  for (const name of ['.lifequest-pool', 'lifequest-pool']) {
+    try {
+      await root.removeEntry(name, { recursive: true });
+      out.push(`removed ${name}`);
+      removed = true;
+    } catch (e) {
+      const err = e instanceof Error ? e.name : String(e);
+      out.push(`${name}: ${err}`);
+      // NotFoundError just means that spelling is not the one in use. Anything else means the
+      // files are *there* and something is holding them.
+      if (err !== 'NotFoundError') blocked = err;
+    }
+  }
+
+  // Reporting success here and reloading would be the worst outcome: the user would see the
+  // identical failure screen and conclude the button does nothing. Measured — with the pool
+  // open, `removeEntry` throws NoModificationAllowedError, because the sahpool VFS holds a
+  // sync access handle on every file it owns.
+  if (!removed && blocked) {
+    throw new Error(
+      `Could not delete the database — something still has it open (${blocked}). ` +
+        'Close every other LifeQuest tab and window, then reload and try again.'
+    );
+  }
+  return out;
+}
+
 function handle(db: Oo1Db, req: WorkerRequest): WorkerResponse {
   switch (req.kind) {
     // Handled before `ready` is awaited; unreachable here, but the switch must be total.
     case 'probe':
+    case 'reset':
       return { id: req.id, ok: true, rows: [] };
     case 'exec':
       db.exec(req.sql);
@@ -190,6 +242,12 @@ self.onmessage = (event) => {
       // fail with exactly the error it was sent to explain.
       if (req.kind === 'probe') {
         self.postMessage({ id: req.id, ok: true, rows: await probeStorage() });
+        return;
+      }
+      // Also answered before `await ready`: the whole point is to run when the pool is what
+      // is broken, and the pool holds sync access handles that would block the delete.
+      if (req.kind === 'reset') {
+        self.postMessage({ id: req.id, ok: true, rows: await resetLocalData() });
         return;
       }
       self.postMessage(handle(await ready, req));

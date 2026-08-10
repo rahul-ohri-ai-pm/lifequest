@@ -21,9 +21,17 @@ export const colors = {
    *  "rarest thing on the screen" signals, and they should read as the same signal. */
   epic: '#F5B942',
   /** Mirrors --color-danger in index.css. Reserved for the alert panel tone and for the
-   *  missed-quest marker — §2's forgiving-progression goal means it marks a *fact*, never a
-   *  scolding, so it appears as an outline or a pip and never as a filled row. */
+   *  missed/overdue marker — §2's forgiving-progression goal means it marks a *fact*, never a
+   *  scolding, so it appears as an edge or a tag and never as a filled row. */
   danger: '#E5484D',
+  /**
+   * Skipped — a deliberate "not today", which §7 logs in its own table precisely because it is
+   * not a miss. Teal rather than the intuitive amber/orange: checked with the dataviz
+   * validator against the colour it sits beside, and orange↔danger scores ΔE 11.3 in *normal*
+   * vision (9.8 deutan), well under the 15 floor — the classic red/orange trap. Teal scores
+   * 35.8 / 17.5 against the same pair (D46).
+   */
+  skipped: '#2DD4BF',
 } as const;
 
 // Rarity/difficulty accent ramp (Trivial→Epic), echoing RPG item-rarity coloring
