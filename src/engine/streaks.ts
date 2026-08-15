@@ -96,9 +96,31 @@ export function computeHabitStreak(
   schedule: Schedule,
   completedDays: ReadonlySet<string>,
   fromDay: string,
-  today: Date
+  today: Date,
+  /**
+   * The day this habit started existing. Scheduled days *before* it are due only when something
+   * was actually logged against them.
+   *
+   * Both halves of that matter, and they are the same rule the calendar already draws. A
+   * standing rule cannot be broken before it existed, so an empty pre-creation day is never a
+   * miss (`questDayState` returns `upcoming` for exactly these days) — but a completion
+   * backfilled onto one is real work and still extends the run, which is what makes "I've been
+   * running all week, let me record it" produce a week-long streak instead of a one-day one.
+   *
+   * Defaults to `fromDay`, which makes the qualifier a no-op for callers that don't care.
+   */
+  createdDay: string = fromDay
 ): StreakState {
-  return walk((date) => isScheduledDay(schedule, date), completedDays, fromDay, today);
+  return walk(
+    (date) => {
+      if (!isScheduledDay(schedule, date)) return false;
+      const key = dayKeyFor(date);
+      return key >= createdDay || completedDays.has(key);
+    },
+    completedDays,
+    fromDay,
+    today
+  );
 }
 
 /**

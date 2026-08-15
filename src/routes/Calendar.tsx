@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
+import { ChevronLeftIcon, ChevronRightIcon, SkipIcon, UndoIcon } from '../components/icons';
 import { SystemPanel } from '../components/system/SystemPanel';
 import { RuneDivider } from '../components/system/RuneDivider';
 import { monthGrid } from '../engine/calendar';
@@ -25,6 +25,11 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const STATE_TAG = 'shrink-0 font-display text-[10px] uppercase tracking-[0.16em]';
 
+// Same icon-verb treatment as the quest row on Today, so the gesture is learned once. They keep
+// an aria-label and a title, so the meaning survives for screen readers and on hover.
+const VERB_BTN =
+  'grid size-7 shrink-0 place-items-center rounded-full border border-edge text-muted transition-colors hover:border-muted hover:text-fg disabled:opacity-40';
+
 export default function Calendar() {
   const navigate = useNavigate();
   const tasks = useTaskStore((s) => s.tasks);
@@ -45,6 +50,9 @@ export default function Calendar() {
   const [logOpen, setLogOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const backfillCompletion = useTaskStore((s) => s.backfillCompletion);
+  const undoCompletion = useTaskStore((s) => s.undoCompletion);
+  const setSkip = useTaskStore((s) => s.setSkip);
+  const clearSkip = useTaskStore((s) => s.clearSkip);
   const skills = useSkillStore((s) => s.skills);
   const taskSkills = useSkillStore((s) => s.taskSkills);
 
@@ -167,19 +175,61 @@ export default function Calendar() {
     return { name: skill?.name ?? null, icon: skill?.icon ?? null };
   };
 
-  const logOnSelectedDay = async (task: Task) => {
+  // Derived state is recomputed from the log rather than incremented (D29), so an edit to a past
+  // day can *repair* a broken streak and unlock a badge with no special code path — the same
+  // re-derivation a live completion triggers. Without this neither would appear until the next
+  // cold start. `revision` reloads the day's completions; `monthRevision` reloads the month's
+  // completions and every skip, which is what feeds the grid markers and the missed set.
+  const afterWrite = async () => {
+    await resyncDerived();
+    setRevision((r) => r + 1);
+    setMonthRevision((r) => r + 1);
+  };
+
+  // Each write is wrapped so a double tap can't log twice, and so a failure can never leave the
+  // whole day list stuck behind a permanent spinner.
+  const runFor = async (task: Task, work: () => Promise<void>) => {
+    if (busy !== null) return;
     setBusy(task.id);
     try {
-      await backfillCompletion(task, dateFromDayKey(selected), new Date());
-      // Derived state is recomputed from the log, so backfilling can *repair* a break — and
-      // can also unlock a badge. Without this neither would appear until the next cold start.
-      await resyncDerived();
-      setRevision((r) => r + 1);
-      setMonthRevision((r) => r + 1);
-      setLogOpen(false);
+      await work();
+      await afterWrite();
     } finally {
       setBusy(null);
     }
+  };
+
+  const completeOnSelectedDay = (task: Task) =>
+    runFor(task, async () => {
+      await backfillCompletion(task, dateFromDayKey(selected), new Date());
+    });
+
+  // Undo removes the *most recent* completion for that task on that day, matching Today's
+  // "undo last +1" — a counted day with several live-logged entries unwinds one row at a time
+  // rather than being wiped by a single tap. `dayCompletions` is ordered by completed_at ASC.
+  const undoOnSelectedDay = (task: Task) =>
+    runFor(task, async () => {
+      const rows = dayCompletions.filter((c) => c.taskId === task.id);
+      const last = rows[rows.length - 1];
+      if (last) await undoCompletion(last.id, new Date());
+    });
+
+  // A skip moves badges and stats but deliberately *not* the streak: §7 makes a skip break a
+  // streak exactly like a miss, so the streak engine reads completions alone and never looks at
+  // this table. Seeing the streak sit still after a skip is the rule working, not a bug.
+  const skipOnSelectedDay = (task: Task) =>
+    runFor(task, async () => {
+      await setSkip(task, selected, new Date());
+    });
+
+  const unskipOnSelectedDay = (task: Task) =>
+    runFor(task, async () => {
+      await clearSkip(task, selected, new Date());
+    });
+
+  const logOnSelectedDay = async (task: Task) => {
+    await completeOnSelectedDay(task);
+    setLogOpen(false);
   };
 
   const prevMonth = () => {
@@ -195,9 +245,29 @@ export default function Calendar() {
     } else setMonth(month + 1);
   };
 
-  const selectedTasks = tasksForDay(selected);
   const completedIds = new Set(dayCompletions.map((c) => c.taskId));
   const selectedSkipIds = skipsByDay.get(selected) ?? new Set<string>();
+  const selectedDate = dateFromDayKey(selected);
+  // Status is editable on any day that has already happened. A future day stays read-only: you
+  // cannot have done tomorrow's work, and a tick there would write history that never occurred.
+  const editable = selected <= todayKey;
+
+  // The day's quests are everything *planned* that day union everything with *history* that day.
+  // The second half matters: the picker below deliberately lets you log a quest on a day it
+  // isn't scheduled for, and with a planned-only list such a quest never appears here — so it
+  // could be logged and then never un-logged. Skips are included for the same reason.
+  //
+  // A completion belonging to a since-archived quest still won't resolve to a row, because the
+  // store holds active tasks only. That is §4 working as intended — archived quests leave the
+  // active lists but keep their history — and the "N completed" line above still counts them.
+  const selectedTasks: Task[] = (() => {
+    const byId = new Map<string, Task>();
+    for (const t of tasksForDay(selected)) byId.set(t.id, t);
+    for (const t of tasks) {
+      if (completedIds.has(t.id) || selectedSkipIds.has(t.id)) byId.set(t.id, t);
+    }
+    return [...byId.values()];
+  })();
 
   return (
     <div className="p-4 pb-8">
@@ -345,41 +415,120 @@ export default function Calendar() {
           {selectedTasks.map((item) => {
             const state = questDayState(item, selected, todayKey, completedIds, selectedSkipIds);
             const missed = state === 'missed';
+            const done = state === 'done';
+            // §7 offers Skip for habits on their scheduled days only — everywhere else it would
+            // be recording a decision the user never had to make.
+            const canSkip =
+              editable &&
+              item.type === 'habit' &&
+              item.schedule != null &&
+              isScheduledDay(item.schedule, selectedDate) &&
+              !done &&
+              state !== 'skipped';
             return (
               <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => void navigate(`/task/${item.id}`)}
+                {/* A row, not a button. The title navigates and the verbs act, and a button
+                    inside a button is invalid HTML that swallows the inner click in some
+                    browsers — the same structure the quest row on Today uses. */}
+                <div
                   className={cn(
-                    'notch [--notch:6px] flex w-full items-center gap-2 border bg-panel p-2 text-left transition-colors hover:bg-panel-raised',
+                    'notch [--notch:6px] flex w-full items-center gap-2 border bg-panel p-2 transition-colors',
                     missed && 'border-danger/50',
                     state === 'skipped' && 'border-skipped/40',
                     !missed && state !== 'skipped' && 'border-edge'
                   )}
                 >
-                  {/* The pip always carries *difficulty*, never state. An earlier version
-                      overrode it with the state colour, which put danger red into the same 8px
-                      slot as the five-colour rarity ramp — and red↔Trivial grey scores CVD
-                      ΔE 7.5, under target. State lives on the border and the tag instead, where
-                      it competes with nothing and is always spelled out in words (D46). */}
-                  <span
-                    className="size-2 shrink-0 rotate-45"
-                    style={{ backgroundColor: difficultyColors[item.difficulty] }}
-                  />
-                  <span
-                    className={cn(
-                      'flex-1 truncate text-sm',
-                      state === 'skipped' ? 'text-muted' : 'text-fg'
-                    )}
+                  <button
+                    type="button"
+                    onClick={() => void navigate(`/task/${item.id}`)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    {item.title}
-                  </span>
-                  {state === 'done' && <CheckIcon size={15} className="shrink-0 text-accent" />}
+                    {/* The pip always carries *difficulty*, never state. An earlier version
+                        overrode it with the state colour, which put danger red into the same 8px
+                        slot as the five-colour rarity ramp — and red↔Trivial grey scores CVD
+                        ΔE 7.5, under target. State lives on the border and the tag instead,
+                        where it competes with nothing and is always spelled out in words (D46). */}
+                    <span
+                      className="size-2 shrink-0 rotate-45"
+                      style={{ backgroundColor: difficultyColors[item.difficulty] }}
+                    />
+                    <span
+                      className={cn(
+                        'flex-1 truncate text-sm',
+                        state === 'skipped' ? 'text-muted' : 'text-fg'
+                      )}
+                    >
+                      {item.title}
+                    </span>
+                  </button>
+
                   {state === 'skipped' && (
                     <span className={`${STATE_TAG} text-skipped`}>Skipped</span>
                   )}
                   {missed && <span className={`${STATE_TAG} text-danger`}>Missed</span>}
-                </button>
+
+                  {canSkip && (
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void skipOnSelectedDay(item)}
+                      aria-label={`Skip ${item.title} on ${selected}`}
+                      title="Mark as skipped"
+                      className={VERB_BTN}
+                    >
+                      <SkipIcon size={14} />
+                    </button>
+                  )}
+                  {editable && state === 'skipped' && (
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void unskipOnSelectedDay(item)}
+                      aria-label={`Undo skip ${item.title} on ${selected}`}
+                      title="Undo skip"
+                      className={VERB_BTN}
+                    >
+                      <UndoIcon size={14} />
+                    </button>
+                  )}
+
+                  {/* The status control. A checkbox that is never disabled on a day that has
+                      happened: tapping a cleared quest clears the completion again, so the way
+                      back is the same gesture as the way forward. */}
+                  {editable && (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={done}
+                      disabled={busy !== null}
+                      onClick={() =>
+                        void (done ? undoOnSelectedDay(item) : completeOnSelectedDay(item))
+                      }
+                      aria-label={
+                        done
+                          ? `Undo ${item.title} on ${selected}`
+                          : `Complete ${item.title} on ${selected}`
+                      }
+                      title={done ? 'Tap to undo' : 'Tap to mark done'}
+                      className={cn(
+                        'group grid size-7 shrink-0 place-items-center rounded-full border-2 transition-colors disabled:opacity-40',
+                        done
+                          ? 'border-accent bg-accent text-bg'
+                          : 'border-edge text-muted hover:border-accent hover:text-accent'
+                      )}
+                    >
+                      {done ? (
+                        <>
+                          <CheckIcon size={14} className="group-hover:hidden" />
+                          <UndoIcon size={13} className="hidden group-hover:block" />
+                        </>
+                      ) : null}
+                    </button>
+                  )}
+
+                  {/* Future days keep the tick as a read-only marker rather than a control. */}
+                  {!editable && done && <CheckIcon size={15} className="shrink-0 text-accent" />}
+                </div>
               </li>
             );
           })}

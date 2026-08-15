@@ -527,6 +527,46 @@ test is wrong — it is newer than the feature and it has been run fewer times.*
 sharper: a measurement you have not questioned is not evidence, and the failure mode is not the
 false alarm you notice — it is the false *pass* you don't.
 
+## Step 16 — The feature that was already paid for (2026-08-15)
+
+The ask was two sentences: *"if I go to calendar on an older day, I should be able to update the
+status of a quest; the updated status should then count towards streak and badge."*
+
+The second sentence is the one that sounds expensive. Making a retroactive edit propagate through
+a streak counter and ~30 badge rules is normally where you start writing reconciliation code —
+recompute-from, invalidate-forward, backfill-the-counters. Here it cost **one function call**,
+because of a decision made three phases earlier: streaks and badges are *derived from the log on
+every read*, never incremented (D29). Nothing had to learn about retro-edits. Write the row, call
+`resyncDerived()`, and Tuesday's repair rebuilds the streak Tuesday broke.
+
+That is the whole point of the architectural call, and it is only visible now. At the time it
+looked like extra work for no user-facing gain — walking the log on every launch instead of just
+adding one to a number. The payoff arrived as a feature request nobody had anticipated, arriving
+almost free. **Architecture is a bet on the requests you haven't heard yet**, and you cannot
+usually collect the evidence until the request shows up.
+
+Two things did not come free, and both are worth more than the feature.
+
+**The list you can write to but not read back from.** The day list showed quests *scheduled or
+due* that day. The picker, though, deliberately lets you log a quest on a day it isn't scheduled —
+so that quest could be logged and would then never appear again to be un-logged. A one-way door,
+invisible in every screenshot, and it had shipped weeks earlier. Adding an editor to a screen is
+the moment its read model gets audited, because "can the user undo this?" is a question a
+display-only screen never has to answer.
+
+**The bug the type system could not see.** Backfilling onto days *before* a habit was created left
+its streak at 1 — the per-habit walk started at the task's creation date. Types were fine, 152 unit
+tests were green, and the *global* streak was already correct, which is exactly what made it
+invisible: the two streaks disagreed and only one of them was being looked at. It took an
+end-to-end run against a real database to catch. And the naive fix — start the walk earlier —
+would have been worse, turning every empty pre-creation day into a miss that resets the run. The
+rule that actually holds is the one the calendar was already drawing: before a habit existed, a
+day counts only if something was logged on it (D49).
+
+It also killed my own plan's stated assumption that `src/engine/` would not be touched. That
+assumption was reasonable and it was wrong, and the verification step is what surfaced it. **A
+plan's confident claims are hypotheses; the test run is where they get to be false.**
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -559,6 +599,8 @@ false alarm you notice — it is the false *pass* you don't.
 | 2026-08-06 | "Update all markdown files" | Nine files audited, not just appended to. Two CONVENTIONS rules had become **factually false** (no-hard-delete, and the list of sanctioned caches), PLAN still specified `expo-crypto` and `expo-notifications` for a stack with no Expo in it, and ARCHITECTURE's file map was missing about half the codebase |
 | 2026-08-03 | "There should be an option to add or remove categories… icons from a list or found by keyword at run time" | Built the manager, and shipped the keyword search **locally** — a lookup service would have been a network call, which §2 forbids outright. The constraint improved the feature: an in-process matcher can pre-select the icon while you type. "Remove" became archive-first, because a category holds earned XP and tidying a list must not destroy it (Step 13) |
 | 2026-08-03 | "Let's start working on badges as well, ensure they look really nice. Where do you plan to place them?" | Answered the placement question before building: Profile is home, a lazy `/badges` gallery holds the full set, the unlock gets a takeover, and Today stays clear because its job is capture in under five seconds. 30 badges as a declarative catalogue whose rules yield the unlock test, the progress bar and the "6 / 10" readout from one definition (D39) |
+| 2026-08-06 | "Missed quests should be marked with a different colour" → "assign a different colour to skipped quests" | Marked, never scolded — §2 forbids a punishing system, so red states a fact at the weight of a tag, and today is never marked missed at all. The skip colour was **measured** rather than picked: the intuitive amber fails contrast against the danger red it sits beside (ΔE 11.3 normal, 9.8 deutan), teal scores 35.8/17.5. Measuring also caught a mistake shipped the day before — the missed state was overwriting the difficulty pip (D46) |
+| 2026-08-15 | "If I go to calendar on an older day, I should be able to update the status of a quest; the updated status should then count towards streak and badge" | The expensive-sounding half was already paid for: streaks and badges are derived from the log (D29), so a retro-edit needed one `resyncDerived()` call and no reconciliation code. Adding the editor audited the screen's read model and exposed a one-way door that had shipped weeks earlier — a quest logged on a day it isn't scheduled could never be un-logged (D48). The browser check then found a real bug unit tests could not: backfilling before a habit was created left its streak at 1 (D49), which invalidated the plan's own "no engine change" assumption (Step 16) |
 
 ---
 
@@ -626,6 +668,15 @@ false alarm you notice — it is the false *pass* you don't.
     truncating. Suspect the ruler before the thing you're measuring.
 24. **"My docs said we used a library we deleted three weeks ago."** Documentation rots silently
     because nothing fails when it's wrong. Auditing it is a task, not a side effect of writing it.
+25. **"A feature request arrived three months late and cost one line."** Deriving state from the
+    log instead of incrementing counters looked like wasted work until the request nobody
+    anticipated showed up. Architecture is a bet on the asks you haven't heard yet.
+26. **"Adding an edit button is how you audit a read-only screen."** The day list showed quests
+    scheduled that day — fine to look at, a one-way door the moment users could undo things.
+    "Can they take it back?" is a question a display-only screen never has to answer.
+27. **"My plan said 'this won't touch the engine.' The test run disagreed."** Plans state
+    hypotheses with the grammar of facts. The verification step is where they get to be wrong —
+    which is an argument for testing end-to-end against real data, not for planning less.
 
 ---
 

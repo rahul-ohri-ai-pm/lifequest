@@ -307,3 +307,25 @@ and reopens the database** — which is exactly what it was trying to avoid. Use
 base, or `about:blank` (note that its origin is opaque, so origin-scoped storage is not visible
 from there).
 
+
+## 42. Store slices named "today" must reject writes aimed at other days
+
+`useTaskStore` keeps `completionsToday` and `skipsToday` as projections of *today*. Once the
+calendar could write to an arbitrary day, every write path had to ask whether the day it just
+wrote to is actually today before touching them — `backfillCompletion` already did, and
+`setSkip`/`clearSkip` needed the same guard. Miss it and the bug is not a crash: Today's quest log
+quietly shows a habit as skipped or completed because of something the user recorded for last
+Tuesday, and it corrects itself on the next reload, which is the hardest kind of report to act on.
+
+The general shape: a cache whose name encodes a filter has to re-check that filter on write, not
+just on load.
+
+## 43. The calendar reads `?day=` once, at mount
+
+`Calendar.tsx` seeds its `selected` state from the query parameter with `useState`, deliberately —
+treating the param as live state would fight the in-grid day buttons. The consequence is that
+`pushState` from `/calendar?day=A` to `/calendar?day=B` **does not move the selected day**, because
+the route never unmounts. In the app this is invisible (you arrive from Today or the week strip,
+which is always a fresh mount), but it silently invalidated four assertions in the first run of
+`past-status.mjs` — every calendar-to-calendar hop was still acting on the first day. Any harness
+walking several dates has to bounce through another route between them.

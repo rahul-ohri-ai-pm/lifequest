@@ -24,6 +24,9 @@ interface TaskState {
   undoCompletion(completionId: string, now: Date): Promise<void>;
   skipTask(task: Task, now: Date): Promise<void>;
   unskipTask(task: Task, now: Date): Promise<void>;
+  /** Skip/unskip on an arbitrary local day (calendar backfill). */
+  setSkip(task: Task, dayKey: string, now: Date): Promise<void>;
+  clearSkip(task: Task, dayKey: string, now: Date): Promise<void>;
   archiveTask(id: string, now: Date): Promise<void>;
   unarchiveTask(id: string, now: Date): Promise<void>;
 }
@@ -70,12 +73,29 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   // retroactively). Midday is used rather than midnight so a daylight-saving shift can never
   // push the row onto the neighbouring day.
   backfillCompletion: async (task, day, now) => {
-    const xp = xpForDifficulty(task.difficulty);
     const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0);
+    let xp = xpForDifficulty(task.difficulty);
+    let progressCount: number | null = null;
+
+    // A counted quest has no retro +1 stepper — backfill means "the target was met that day", so
+    // the single row carries whatever was still outstanding and the §7 rule decides its XP
+    // against the progress already logged for *that* day (which may be non-zero if some of it
+    // was logged live). Read from the DB rather than `completionsToday`: the day in question is
+    // usually not today, so the store slice would be about the wrong day entirely.
+    if (task.type === 'counted' && task.targetCount != null) {
+      const { startIso, endIso } = dayWindow(at);
+      const sameDay = await completionQueries.getCompletionsBetween(startIso, endIso);
+      const prior = sameDay
+        .filter((c) => c.taskId === task.id)
+        .reduce((sum, c) => sum + (c.progressCount ?? 0), 0);
+      progressCount = Math.max(task.targetCount - prior, 1);
+      xp = xpForCountedLog(prior, progressCount, task.targetCount, task.difficulty);
+    }
+
     const { completion, character } = await completionQueries.logCompletion(
       task.id,
       xp,
-      null,
+      progressCount,
       now,
       at
     );
@@ -111,16 +131,33 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     void useSkillStore.getState().refreshSkills();
   },
 
-  // §4 Skip: explicit "chose not to do it today" — stats-only, no XP
+  // §4 Skip: explicit "chose not to do it today" — stats-only, no XP.
+  //
+  // Day-scoped, because the calendar can now set a skip on a day that has already passed. The
+  // guard is the same one `backfillCompletion` needs and for the same reason: `skipsToday` means
+  // exactly what its name says, so letting a past-day row into it would make Today's quest log
+  // show a habit as skipped that is still open right now.
+  setSkip: async (task, dayKey, now) => {
+    const skip = await skipQueries.addSkip(task.id, dayKey, now);
+    if (dayKey === dayKeyFor(now)) set({ skipsToday: [...get().skipsToday, skip] });
+  },
+
+  clearSkip: async (task, dayKey, now) => {
+    await skipQueries.removeSkip(task.id, dayKey);
+    if (dayKey === dayKeyFor(now)) {
+      set({
+        skipsToday: get().skipsToday.filter((s) => !(s.taskId === task.id && s.day === dayKey)),
+      });
+    }
+  },
+
+  // Today's callers stay on these; they are the day-scoped pair pinned to now.
   skipTask: async (task, now) => {
-    const skip = await skipQueries.addSkip(task.id, dayKeyFor(now), now);
-    set({ skipsToday: [...get().skipsToday, skip] });
+    await get().setSkip(task, dayKeyFor(now), now);
   },
 
   unskipTask: async (task, now) => {
-    const dayKey = dayKeyFor(now);
-    await skipQueries.removeSkip(task.id, dayKey);
-    set({ skipsToday: get().skipsToday.filter((s) => !(s.taskId === task.id && s.day === dayKey)) });
+    await get().clearSkip(task, dayKeyFor(now), now);
   },
 
   archiveTask: async (id, now) => {

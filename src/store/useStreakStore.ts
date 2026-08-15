@@ -73,8 +73,14 @@ export const useStreakStore = create<StreakStoreState>((set) => ({
       // Only scheduled habits have a per-habit streak — a one-off todo has nothing to be
       // consecutive about (§7).
       if (!task.schedule) continue;
-      const from = dayKeyFor(new Date(task.createdAt));
-      const state = computeHabitStreak(task.schedule, daysByTask.get(task.id) ?? new Set(), from, now);
+      const created = dayKeyFor(new Date(task.createdAt));
+      const days = daysByTask.get(task.id) ?? new Set<string>();
+      // Calendar backfill can put work *before* the habit was created, so the walk starts at
+      // whichever came first. `created` is still passed through: it is what stops the empty days
+      // in that window from counting as misses (see computeHabitStreak).
+      const earliest = [...days].sort()[0];
+      const from = earliest && earliest < created ? earliest : created;
+      const state = computeHabitStreak(task.schedule, days, from, now, created);
       const prior = storedByTask.get(task.id);
       byTask[task.id] = {
         state,

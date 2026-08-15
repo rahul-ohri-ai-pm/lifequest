@@ -193,6 +193,36 @@ include today and correctly show identical numbers. The assertion that actually 
 filter is wired is the activity chart's column count, which is range-derived: 7/7/30/60.
 Verified. The range *math* is owned by the engine tests, which use dated rows.
 
+## Phase 2.1 (owner instruction — "if I go to calendar on an older day, I should be able to update the status of a quest; the updated status should then count towards streak and badge")
+
+**P13 — the calendar day list became an editor.** Complete / undo / skip / unskip now live on the
+day rows themselves, for today and any day before it; a future day stays read-only, because you
+cannot have done tomorrow's work. Every write goes through `resyncDerived()`, so repairing an old
+day repairs the streak that day broke and can unlock a badge on the spot.
+
+Three things worth recording:
+
+- **The feature was cheap because of a decision made three phases earlier.** Deriving streaks and
+  badges from the completions log rather than incrementing counters (D29) meant a retro-edit
+  needed no special path at all — the same re-derivation a live completion triggers. Had those
+  been stored counters, "make Tuesday count" would have meant rebuilding them.
+- **The day list's membership rule was wrong for editing.** It listed quests *scheduled or due*
+  that day, but the picker deliberately allows logging a quest on a day it isn't scheduled — so
+  such a quest could be logged and then never appear again to be un-logged. Now it is planned
+  **union** has-history (D48).
+- **The browser check found a real bug the type system could not.** Backfilling onto days before
+  a habit was created left its streak at 1, because the per-habit walk started at the creation
+  date (the *global* streak was already right, which is why it took an end-to-end test with a
+  real database to see). Fixed in the engine with five new unit tests (D49) — and it invalidated
+  this round's "no engine change" assumption, which is what verification is for.
+
+Verified end to end in Chromium against the built app (`past-status.mjs`): streak 1 → repair two
+past days → **3** → undo one → **2**, persisted across reload; skip renders teal and leaves the
+streak untouched; an unscheduled quest logged via the picker can be un-logged from the day list;
+a future day exposes no verbs. Regressions (`missed-check`, `badge-check`, `round-check`) still
+green, 157 engine tests pass, and Today still reports **0 animations at rest** with tap-to-paint
+at 30.5ms.
+
 ## Phase 3
 
 | Item | Status |

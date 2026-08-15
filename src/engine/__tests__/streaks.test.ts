@@ -203,3 +203,74 @@ describe('mergeLongest', () => {
     expect(mergeLongest(2, 9)).toBe(9);
   });
 });
+
+// Calendar backfill can log work onto days *before* the habit was created — "I've been running
+// all week, let me record it". `createdDay` is what keeps that coherent: pre-creation days are
+// due only when something was actually logged against them, which is precisely what the calendar
+// already draws for those days (questDayState returns 'upcoming', never 'missed').
+describe('computeHabitStreak — backfill before the habit existed', () => {
+  it('counts a backfilled day that predates creation', () => {
+    const s = computeHabitStreak(
+      daily,
+      days('2026-03-03', '2026-03-04', '2026-03-05'),
+      '2026-03-03', // walk starts at the earliest completion
+      d('2026-03-05'),
+      '2026-03-05' // …but the habit was only created today
+    );
+    expect(s).toMatchObject({ current: 3, longest: 3, lastActiveDay: '2026-03-05' });
+  });
+
+  it('does not treat an empty pre-creation day as a miss', () => {
+    // Nothing logged on the 4th. Before creation that is not a failure, so the run survives.
+    const s = computeHabitStreak(
+      daily,
+      days('2026-03-03', '2026-03-05'),
+      '2026-03-03',
+      d('2026-03-05'),
+      '2026-03-05'
+    );
+    expect(s).toMatchObject({ current: 2, resetCount: 0, breaks: [] });
+  });
+
+  it('still breaks on a missed day once the habit exists', () => {
+    // Created on the 3rd, so the empty 4th is a real miss and resets the run.
+    const s = computeHabitStreak(
+      daily,
+      days('2026-03-03', '2026-03-05'),
+      '2026-03-03',
+      d('2026-03-05'),
+      '2026-03-03'
+    );
+    expect(s).toMatchObject({ current: 1, longest: 1, resetCount: 1 });
+    expect(s.breaks).toEqual([{ day: '2026-03-04', brokenLength: 1 }]);
+  });
+
+  it('defaults createdDay to fromDay, leaving existing callers unchanged', () => {
+    const withDefault = computeHabitStreak(
+      daily,
+      days('2026-03-03', '2026-03-05'),
+      '2026-03-03',
+      d('2026-03-05')
+    );
+    const explicit = computeHabitStreak(
+      daily,
+      days('2026-03-03', '2026-03-05'),
+      '2026-03-03',
+      d('2026-03-05'),
+      '2026-03-03'
+    );
+    expect(withDefault).toEqual(explicit);
+  });
+
+  it('skips unscheduled pre-creation days regardless of completions', () => {
+    // A Tuesday completion on a Mon/Wed/Fri habit never counts, before creation or after.
+    const s = computeHabitStreak(
+      monWedFri,
+      days('2026-03-03', '2026-03-04', '2026-03-06'), // Tue, Wed, Fri
+      '2026-03-03',
+      d('2026-03-06'),
+      '2026-03-06'
+    );
+    expect(s).toMatchObject({ current: 2, longest: 2, lastActiveDay: '2026-03-06' });
+  });
+});
