@@ -64,7 +64,7 @@ tests passing on the new runner without edits. That is the layering earning its 
 | `src/main.tsx` | React root, `BrowserRouter` basename, service-worker registration |
 | `src/App.tsx` | Startup gate (open DB → migrate → hydrate → resync), layout, tab bar, route table. Non-initial routes are `React.lazy` |
 | `src/routes/Today.tsx` | Today view: schedule filter, fast capture, complete/undo/skip/+1 |
-| `src/routes/Calendar.tsx` | Month grid + selected-day list + backfill; accepts `?day=YYYY-MM-DD` |
+| `src/routes/Calendar.tsx` | Month grid + selected-day list, editable on any day up to today (complete/undo, skip/unskip) with `resyncDerived()` after every write so streaks and badges repair immediately; day list is planned ∪ has-history (D48). Accepts `?day=YYYY-MM-DD` |
 | `src/routes/Profile.tsx` | Sigil, level, lifetime record strip, badge shelf, category manager, skill radar, storage status |
 | `src/routes/Stats.tsx` | Dashboard with the Day/Week/Month/All filter governing every panel |
 | `src/routes/Badges.tsx` | The gallery: grouped crests, progress rings, detail sheet |

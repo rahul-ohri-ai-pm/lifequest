@@ -6,9 +6,9 @@ XP, levels, streaks, and badges. No backend, no accounts, no network calls — e
 on-device SQLite.
 
 **Phase 1 and Phase 2 are complete**: all three task types with the full verb set, XP and character
-levels, a calendar with backfill, editable categories with split XP, derived streaks, a 30-badge
-engine with its gallery, and a filtered skill dashboard. Phase 3 is next — see
-[PROGRESS.md](PROGRESS.md).
+levels, a calendar where any past day's status is directly editable (streaks and badges recompute
+on the spot), editable categories with split XP, derived streaks, a 30-badge engine with its
+gallery, and a filtered skill dashboard. Phase 3 is next — see [PROGRESS.md](PROGRESS.md).
 
 ## For any AI agent / developer working on this repo — read in this order
 
