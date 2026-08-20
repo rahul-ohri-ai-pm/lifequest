@@ -15,9 +15,16 @@ import type { SkillDef } from '../../types';
 // behaviour the owner asked for ("find options based on keywords"), and it means most
 // categories never need the picker opened at all.
 
+// Ten identity colours a category can be assigned. Deliberately none of the app's semantic
+// tokens — the old palette included the danger red, the epic gold and the muted-text grey, so a
+// category could be assigned the exact colour that means "missed" or "streak" everywhere else,
+// and its spine/icon/reward tag would then read as an alarm on a perfectly healthy quest. Every
+// entry here clears 4.5:1 as the 9px reward-tag text it is used for, and sits at least ΔE 18 from
+// every reserved token and ΔE 17.5 from its neighbours (design audit F3). Existing categories
+// keep whatever colour is already stored — this only governs new picks.
 const PALETTE = [
-  '#4C8DFF', '#8B5CF6', '#22D3EE', '#34D399', '#A3E635',
-  '#F5B942', '#F97316', '#EC4899', '#E5484D', '#8A93A8',
+  '#5EA9FF', '#22D3EE', '#5EEAD4', '#A3E635', '#FDE047',
+  '#FB923C', '#F472B6', '#C084FC', '#D9B48F', '#7DD3FC',
 ];
 
 interface Props {

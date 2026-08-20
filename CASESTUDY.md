@@ -567,6 +567,31 @@ It also killed my own plan's stated assumption that `src/engine/` would not be t
 assumption was reasonable and it was wrong, and the verification step is what surfaced it. **A
 plan's confident claims are hypotheses; the test run is where they get to be false.**
 
+## Step 17 — The audit that measured its own claims before publishing them (2026-08-20)
+
+Asked to audit the whole project, the useful failure mode to avoid was a subjective walkthrough
+dressed up as a review — "the type feels inconsistent," "the palette seems off." Every finding
+in the published audit was instead computed: WCAG contrast ratios run against the actual `@theme`
+hex values, a CIE Lab ΔE distance search over the category picker's ten swatches against every
+reserved semantic token, a font-size census run against the *rendered* DOM rather than the
+source, and a tap-target survey measuring real bounding boxes in a live browser. The score (73/100)
+carried its arithmetic on the page rather than asserting a number.
+
+That discipline caught a mistake before it shipped: three contrast ratios in the draft (§F4) were
+written from estimate, not computation. Running them found all three understated — the actual
+figures were higher and still passing, so the *conclusion* survived, but the stated evidence
+didn't match the real evidence. Caught by re-deriving every number before publishing, which is the
+same standard the rest of the audit was already holding everything else to. **A report that
+grades a codebase for treating claims as evidence has to hold its own claims to the same test.**
+
+The owner's next instruction — "solve all critical first" — turned the audit from a document into
+a punch list, and the fix for the worst finding (F2, the Best-streak meter) turned out to be a
+four-line change once named precisely: a UI bug is often smaller than the paragraph required to
+explain why it's wrong. The other two critical fixes (F1's bar normalisation, F3's palette
+collision) were each verified the same way the defect was found — a browser assertion reading back
+computed styles, not a visual glance — so the fix could be trusted for the same reason the finding
+was.
+
 ## Running feedback log (owner → product, chronological)
 
 | When | Feedback / instruction | Product response |
@@ -601,6 +626,8 @@ plan's confident claims are hypotheses; the test run is where they get to be fal
 | 2026-08-03 | "Let's start working on badges as well, ensure they look really nice. Where do you plan to place them?" | Answered the placement question before building: Profile is home, a lazy `/badges` gallery holds the full set, the unlock gets a takeover, and Today stays clear because its job is capture in under five seconds. 30 badges as a declarative catalogue whose rules yield the unlock test, the progress bar and the "6 / 10" readout from one definition (D39) |
 | 2026-08-06 | "Missed quests should be marked with a different colour" → "assign a different colour to skipped quests" | Marked, never scolded — §2 forbids a punishing system, so red states a fact at the weight of a tag, and today is never marked missed at all. The skip colour was **measured** rather than picked: the intuitive amber fails contrast against the danger red it sits beside (ΔE 11.3 normal, 9.8 deutan), teal scores 35.8/17.5. Measuring also caught a mistake shipped the day before — the missed state was overwriting the difficulty pip (D46) |
 | 2026-08-15 | "If I go to calendar on an older day, I should be able to update the status of a quest; the updated status should then count towards streak and badge" | The expensive-sounding half was already paid for: streaks and badges are derived from the log (D29), so a retro-edit needed one `resyncDerived()` call and no reconciliation code. Adding the editor audited the screen's read model and exposed a one-way door that had shipped weeks earlier — a quest logged on a day it isn't scheduled could never be un-logged (D48). The browser check then found a real bug unit tests could not: backfilling before a habit was created left its streak at 1 (D49), which invalidated the plan's own "no engine change" assumption (Step 16) |
+| 2026-08-20 | "Audit this entire project" | Every finding computed, not felt — WCAG contrast run against the real hex values, a Lab-space ΔE search over the category palette, a rendered-DOM font-size census, measured tap targets. Scored 73/100 with the arithmetic shown. Caught its own error before publishing: three contrast figures in the draft were written from estimate rather than computation, and re-deriving them found the conclusion held but the stated evidence didn't match (Step 17) |
+| 2026-08-20 | "Let's plan to solve all critical first" | Three critical findings, three fixes, same verification standard the audit itself used: a browser assertion reading back computed styles, not a glance. F2's fix was four lines once the defect was named precisely — a meter whose value and fill answered different questions (D51). F1's fix touched three chart components sharing one root cause (D50); F3 replaced the category palette with a set already verified collision-free (D52) |
 
 ---
 
@@ -677,6 +704,12 @@ plan's confident claims are hypotheses; the test run is where they get to be fal
 27. **"My plan said 'this won't touch the engine.' The test run disagreed."** Plans state
     hypotheses with the grammar of facts. The verification step is where they get to be wrong —
     which is an argument for testing end-to-end against real data, not for planning less.
+28. **"The audit that graded evidence had to grade its own evidence first."** Three contrast
+    numbers were written from estimate before publishing — caught by re-deriving them against
+    the same standard the report held everything else to. A report is not exempt from its own
+    rubric.
+29. **"The worst bug on the page was four lines once I named it right."** A meter's value and its
+    fill were answering two different questions. Diagnosis, not effort, was the expensive part.
 
 ---
 

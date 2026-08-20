@@ -127,9 +127,14 @@ export function StatusHero({ doneCount, totalCount, xpToday }: Props) {
             fill={weekActive / 7}
             color={colors.accentSecondary}
           />
+          {/* Value and fill answer the same question — current run against the record — so
+              this reads as one quantity rather than two. Showing the record alone (as this used
+              to) put a 100%-full bar under a 1-day "best" on day one, and a near-empty bar under
+              a 30-day best the moment a fresh streak started: the fill and the label were never
+              describing the same thing (design audit F2). */}
           <Meter
-            label="Best"
-            value={`${longest}d`}
+            label="Streak"
+            value={`${streak}/${longest}d`}
             fill={longest ? streak / longest : 0}
             color={colors.epic}
           />

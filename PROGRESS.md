@@ -223,6 +223,31 @@ a future day exposes no verbs. Regressions (`missed-check`, `badge-check`, `roun
 green, 157 engine tests pass, and Today still reports **0 animations at rest** with tap-to-paint
 at 30.5ms.
 
+## Phase 2.2 (design audit — self-directed, owner: "let's plan to solve all critical first")
+
+**P14 — the three critical findings from a design audit are fixed and verified.** The audit
+(published as an artifact) scored the app 73/100 and found three critical defects, all in
+information design rather than visual identity:
+
+- **Bars normalised to their own visible peak read as "complete" with sparse data** (D50).
+  `ActivityChart`, `SkillBars`, and the Stats "Top quests" list all sized fills against
+  `Math.max(...values, 1)`, so a single active day or single active skill — every new account —
+  rendered a 100%-full bar. Fixed by printing the peak at the axis and dropping the bar below two
+  non-zero entries in favour of the count each row already prints.
+- **The Best-streak meter's value and fill answered different questions** (D51) — value was the
+  all-time record, fill was the current run's progress toward it. Relabelled to Streak,
+  `{streak}/{longest}d`, fill `streak / longest`; now one claim instead of two.
+- **Six of ten category colour swatches were reserved semantic tokens**, including the exact
+  `danger` red (D52) — a category could be assigned the colour that means "missed" everywhere
+  else. Replaced with a ten-swatch set verified to clear 4.5:1 as reward-tag text and sit clear
+  of every reserved token by measured colour distance.
+
+Verified end to end against the built app: the exact "one habit, one completion" state that
+triggered F1/F2 now shows the sentence fallback and the corrected meter; the category editor
+renders the new palette with zero collisions confirmed by reading back computed styles. All
+three existing regressions (`missed-check`, `badge-check`, `round-check`) and the calendar
+past-status suite still pass unchanged, 157 engine tests green, 0 animations at rest on Today.
+
 ## Phase 3
 
 | Item | Status |

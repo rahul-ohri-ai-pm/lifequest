@@ -69,8 +69,19 @@ export function SkillBars({ rows, animateKey, emptyText }: Props) {
     return <p className="py-4 text-center text-[13px] text-muted">{emptyText}</p>;
   }
 
+  // With one active skill, that skill is trivially the max — normalising its bar to itself
+  // draws a full-width bar that reads as "maxed out" regardless of how little XP it holds. Each
+  // row already prints its own XP as a number, so below two rows the bar is dropped rather than
+  // drawn wrong (design audit F1); ranking resumes once there is a second skill to rank against.
+  const ranked = rows.length >= 2;
+
   return (
     <div ref={root} className="flex flex-col gap-3">
+      {ranked && (
+        <span className="font-display text-[10px] uppercase tracking-[0.14em] text-muted">
+          peak {max} xp
+        </span>
+      )}
       {rows.map((r) => (
         <div key={r.id}>
           <div className="mb-1 flex items-baseline gap-2">
@@ -97,17 +108,19 @@ export function SkillBars({ rows, animateKey, emptyText }: Props) {
               ×{r.count}
             </span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-bg-alt">
-            <div
-              data-fill
-              className="h-full origin-left rounded-full"
-              style={{
-                width: `${(r.xp / max) * 100}%`,
-                backgroundColor: colors.accent,
-                boxShadow: `0 0 6px ${colors.accent}`,
-              }}
-            />
-          </div>
+          {ranked && (
+            <div className="h-1.5 overflow-hidden rounded-full bg-bg-alt">
+              <div
+                data-fill
+                className="h-full origin-left rounded-full"
+                style={{
+                  width: `${(r.xp / max) * 100}%`,
+                  backgroundColor: colors.accent,
+                  boxShadow: `0 0 6px ${colors.accent}`,
+                }}
+              />
+            </div>
+          )}
         </div>
       ))}
     </div>

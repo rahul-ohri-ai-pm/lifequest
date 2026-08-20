@@ -253,9 +253,14 @@ export default function Stats() {
           {top.length === 0 ? (
             <p className="text-[13px] text-muted">Complete something to see it here.</p>
           ) : (
-            top.map((t) => {
+            (() => {
+              // A single quest is trivially its own max — normalising to it draws a full bar
+              // regardless of whether it ran once or twenty times. The row already prints its
+              // own ×count, so the bar is dropped below two entries rather than drawn wrong,
+              // and resumes once there is a second quest to rank against (design audit F1).
+              const ranked = top.length >= 2;
               const max = Math.max(...top.map((x) => x.count), 1);
-              return (
+              return top.map((t) => (
                 <div key={t.taskId}>
                   <div className="mb-0.5 flex justify-between gap-2">
                     <span className="truncate text-[13px] text-fg">{t.title}</span>
@@ -263,15 +268,17 @@ export default function Stats() {
                       ×{t.count} · {t.xp} XP
                     </span>
                   </div>
-                  <div className="h-1 overflow-hidden rounded-full bg-bg-alt">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-500"
-                      style={{ width: `${(t.count / max) * 100}%`, backgroundColor: t.color }}
-                    />
-                  </div>
+                  {ranked && (
+                    <div className="h-1 overflow-hidden rounded-full bg-bg-alt">
+                      <div
+                        className="h-full rounded-full transition-[width] duration-500"
+                        style={{ width: `${(t.count / max) * 100}%`, backgroundColor: t.color }}
+                      />
+                    </div>
+                  )}
                 </div>
-              );
-            })
+              ));
+            })()
           )}
         </SystemPanel>
       </div>

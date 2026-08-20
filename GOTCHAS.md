@@ -329,3 +329,12 @@ the route never unmounts. In the app this is invisible (you arrive from Today or
 which is always a fresh mount), but it silently invalidated four assertions in the first run of
 `past-status.mjs` — every calendar-to-calendar hop was still acting on the first day. Any harness
 walking several dates has to bounce through another route between them.
+
+## 44. `Math.max(...values, 1)` normalisation looks safe but isn't the whole fix
+
+The `, 1` guard in `Math.max(...bars.map(b => b.count), 1)` only prevents a divide-by-zero — it
+does nothing about the case where there **is** data but only one entry. That entry is
+automatically the max, so it always renders at 100% width regardless of its actual size. Three
+components had this shape (`ActivityChart`, `SkillBars`, the Stats "Top quests" list), and all
+three needed a second guard — a minimum *count* of non-zero entries, not just a minimum
+*denominator* — before the fill can be trusted to mean anything (design audit F1, D50).

@@ -29,6 +29,13 @@ export function ActivityChart({ bars, animateKey }: Props) {
   const root = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...bars.map((b) => b.count), 1);
+  const total = bars.reduce((sum, b) => sum + b.count, 0);
+  // A bar normalised to the range's own peak reads as "how full" only when there is more than
+  // one data point to be full *relative to*. With a single active day that day is automatically
+  // the max, so the bar renders 100% regardless of whether it was 1 completion or 20 — a chart
+  // that cannot help but say "complete." Below two active days the magnitude is better read as
+  // words than as a bar it would be misleading to draw (design audit F1).
+  const activeDays = bars.filter((b) => b.count > 0).length;
 
   useGsap(
     root,
@@ -49,8 +56,18 @@ export function ActivityChart({ bars, animateKey }: Props) {
     [animateKey]
   );
 
-  if (!bars.length) {
+  if (!bars.length || total === 0) {
     return <p className="py-6 text-center text-[13px] text-muted">Nothing logged in this range.</p>;
+  }
+
+  if (activeDays < 2) {
+    const only = bars.find((b) => b.count > 0)!;
+    return (
+      <p className="py-6 text-center text-[13px] text-muted">
+        {total} {total === 1 ? 'quest' : 'quests'} logged, on {shortLabel(only.day)}. A trend needs
+        a second active day to compare against.
+      </p>
+    );
   }
 
   const active = hover != null ? bars[hover] : null;
@@ -59,7 +76,12 @@ export function ActivityChart({ bars, animateKey }: Props) {
     <div ref={root} className="relative">
       {/* Tooltip: an HTML chart is interactive by default, so every bar is hoverable and the
           readout sits above the plot rather than following the cursor (steadier on touch). */}
-      <div className="mb-1 flex h-4 items-center justify-end">
+      <div className="mb-1 flex h-4 items-center justify-between">
+        <span className="font-display text-[10px] uppercase tracking-[0.14em] text-muted">
+          {/* The scale the bars are drawn against — without this, "full" is unlabelled and
+              unfalsifiable (design audit F1). */}
+          peak {max}
+        </span>
         {active && (
           <span className="font-display text-[11px] uppercase tracking-[0.14em] text-fg">
             {shortLabel(active.day)} · {active.count} {active.count === 1 ? 'quest' : 'quests'}
@@ -67,7 +89,9 @@ export function ActivityChart({ bars, animateKey }: Props) {
         )}
       </div>
 
-      <div className="flex h-24 items-end gap-[2px]">
+      <div className="relative flex h-24 items-end gap-[2px]">
+        {/* The gridline marking that peak, so "100% tall" has a printed referent. */}
+        <span className="pointer-events-none absolute inset-x-0 top-0 border-t border-dashed border-edge/70" />
         {bars.map((b, i) => (
           <button
             key={b.day}
