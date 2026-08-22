@@ -546,3 +546,31 @@ reminders; level-up celebration animations; JSON export/import of the full DB.
 **Definition of done**: I can set and complete a goal of each type and see the bonus XP/badge land;
 the stats screen and heatmap reflect real completion history with no derived-data drift; a JSON
 export followed by import on a fresh install reproduces identical state.
+
+## 11. Session Tooling — MCP Discipline
+
+**Mandatory, every session, from the moment it starts or resumes**: use only the MCP servers a task
+actually requires. Don't reach for one because it happens to be connected.
+
+LifeQuest's own §2 already rules out the surface most MCP servers exist to serve — no accounts, no
+backend, no network calls of any kind once the app has loaded. That non-goal extends to how this
+repo gets *worked on*, not just what ships in it:
+
+- **`github` (the GitHub MCP server)** — the one this project genuinely needs. Repo reads/writes,
+  PRs, Actions/deploy-status checks, issue and review work all go through it.
+- **The `Claude_Code_Remote` control-plane tools** (session management, scheduled wakeups, PR
+  activity subscriptions) — infrastructure for *how this session operates*, not a project
+  integration. Use them for what they're for: watching a deploy, scheduling a follow-up check,
+  managing sibling sessions. Not a general-purpose everything-hub.
+- **Everything else that shows up connected in a given session** — Gmail, Google Calendar, Google
+  Drive, Firecrawl, Higgsfield, or any future addition — **has no role in this project.**
+  LifeQuest has no email feature, no calendar integration, no cloud storage, no scraping pipeline,
+  and no media-generation pipeline, and none are on the roadmap (§10, §2 non-goals). Do not call
+  these, do not `ToolSearch` for them speculatively, and do not let their presence in the tool list
+  suggest a feature that isn't in the spec.
+
+If a task genuinely seems to need one of the "everything else" servers, that is a signal to stop
+and confirm with the owner before using it — not a reason to reach for it. A tool being available
+is not the same as a tool being warranted, and an agent that uses every connected integration by
+default will eventually take an action on this single-user, privacy-by-design project that the
+owner never asked for.
