@@ -488,6 +488,36 @@ Leveling up (character or skill) triggers a celebration animation (Phase 3 polis
 - Migrations: `NNNN_description.ts`, forward-only, one logical schema change per file (see §4).
 - DB access goes through `src/db/queries/*` — no raw SQL in components or stores.
 
+### Development Loop — Bounded Iteration for Best Results
+
+Feature work follows a bounded iteration cycle to ensure quality and correctness:
+
+1. **Explore & plan** — Understand the request, survey affected code, identify reusable pieces and patterns.
+2. **Implement** — Write the change following the code-level rules above (layer boundaries, test-driven for engine math, DB queries for data access).
+3. **Verify locally** — Run the full gate on the working tree:
+   ```bash
+   npm test            # All tests pass (engine 100% coverage)
+   npm run typecheck   # Zero type errors (strict mode)
+   npm run lint        # Zero linting violations
+   rm -rf dist && npm run build:web    # Cold build succeeds
+   npm run serve:web   # Test manually in the browser
+   ```
+4. **Review & refine** — Check for:
+   - **Correctness**: Does the change do what was asked? Does it break any existing behavior?
+   - **Architecture**: Do imports respect layer boundaries? Is derived state recomputed, not incremented?
+   - **Craft**: Is the code concise? Does it reuse existing functions? Are comments only where the *why* is non-obvious?
+   - **Performance**: Are animations transient? Is there any new idle-time cost (check `document.getAnimations().length`)?
+5. **Document** — Update DECISIONS.md (add or amend the decision record), PROGRESS.md (mark milestone done), and any user-facing docs (README, CASESTUDY). Never ship a change without recording *why* it was made.
+6. **Commit & push** — One logical commit per feature, with co-author and session link in the message. Tests, typecheck, lint, build all green.
+
+**Stop-gate**: The build must be cold (`rm -rf dist` before `npm run build:web`). A build over a warm `dist/` can produce a different artifact from identical source (GOTCHAS 39), so the bundle you tested locally must be the bundle you ship.
+
+**Verification is bounded, not looped** — two passes maximum:
+- **First pass**: Build fully, run browser verification, audit once (design detector hooks + manual checks). Fix everything that fails.
+- **Second pass** (if needed): Rebuild and re-verify. If still green, ship. If not, stop and debug rather than re-looping.
+
+Open-ended self-QA is a tax on the project. Bounded verification with a clear exit criterion (two passes or green, whichever comes first) keeps iteration lean.
+
 ## 9. Commands
 
 ```bash
