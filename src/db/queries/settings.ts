@@ -17,3 +17,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
     value
   );
 }
+
+export async function getAllSettings(): Promise<{ key: string; value: string }[]> {
+  const db = await getDb();
+  return db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings');
+}

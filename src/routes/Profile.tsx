@@ -5,6 +5,7 @@ import { NumberTicker } from '../components/ui/number-ticker';
 import { SystemPanel } from '../components/system/SystemPanel';
 import { RuneDivider } from '../components/system/RuneDivider';
 import { StorageStatus } from '../components/StorageStatus';
+import { BackupControls } from '../components/BackupControls';
 import { SkillRadar } from '../components/system/SkillRadar';
 import { SkillRow } from '../components/system/SkillRow';
 import { Sigil } from '../components/system/Sigil';
@@ -347,6 +348,7 @@ export default function Profile() {
 
       <RuneDivider label="Storage" />
       <StorageStatus />
+      <BackupControls />
 
       <Link
         to="/archived"

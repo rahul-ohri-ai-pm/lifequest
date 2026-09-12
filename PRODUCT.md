@@ -27,7 +27,7 @@ Primary workflow:
 4. Profile: character/level, lifetime record, skill radar, category management, badge shelf.
 5. Stats: dashboard with per-skill metrics and completion history, filterable by time range.
 
-The app must work entirely offline after first install. OPFS holds the only copy of the data; no export/import exists yet (Phase 3).
+The app must work entirely offline after first install. OPFS holds the only copy of the data; a manual JSON export/import (Profile → Storage) is the backup path (Phase 3, done 2026-09-12).
 
 ## Capabilities and Constraints
 
@@ -39,12 +39,12 @@ The app must work entirely offline after first install. OPFS holds the only copy
 - Badges: 30 declarative rules, progress rings, gallery with locked/hidden states, unlock moments.
 - Categories (skills): user-managed, renaming/adding/removing, split XP evenly across tagged tasks.
 - Calendar: month view with visual markers (completed = filled blue, missed = red outline, planned = grey outline), day list editing for past/present days, picker for retroactive logging.
+- JSON export/import: full-database backup and wholesale restore (Profile → Storage), with a confirm step and field-level validation on import.
 
 **Explicitly undecided (Phase 3+):**
 - Goals: skill-level targets, aggregate counts, streak-length, completion-count.
 - Full stats screen and heatmap: completion density over time, best day/week, completion rate by weekday.
 - Local notifications for reminders.
-- JSON export/import for backup and manual restore.
 
 **Technical constraints:**
 - Web only (PWA, no native wrappers or separate apps for iOS/Android).

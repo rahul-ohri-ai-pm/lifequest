@@ -256,7 +256,26 @@ past-status suite still pass unchanged, 157 engine tests green, 0 animations at 
 | Full stats + heatmap | ⬜ |
 | Local notifications | ⬜ |
 | Level-up animations | ✅ Pulled forward into Phase 1.12 (D6): shockwave, radial sparks, decaying shake, sigil slam-in |
-| JSON export/import | ⬜ |
+| JSON export/import | ✅ Done (2026-09-12) — see below |
+
+**JSON export/import (2026-09-12, D54).** This was the item PROGRESS itself had been arguing to
+pull forward since Phase 1.10/1.11 — durable storage is a request the browser can refuse, so OPFS
+alone is not a backup. Export reads every table (tasks, completions, skips, skills, task_skills,
+streaks, streak_resets, badge_unlocks, character, settings) through the existing query modules and
+downloads one JSON file; import is a full wholesale replace inside a single write transaction
+(child tables before parents on delete, parents before children on insert, matching
+`PRAGMA foreign_keys = ON`), confirmed by the user first with a summary of what the file contains
+(`N quests, N completions, N categories — exported <date>`) and no route back once confirmed. Shape
+validation is pure and unit-tested (`src/engine/backup.ts`, 9 tests) — a hand-edited or corrupted
+file fails with a specific field-level reason (`"tasks[2].difficulty must be one of trivial, easy,
+medium, hard, epic (got \"legendary\")"`, for example) before any `DELETE` statement runs, and the
+failure renders inline on Profile rather than crashing the screen. Verified end to end in a
+headless-Chromium pass: exported a real backup, mutated its `character.totalXp`, fed it back
+through the file picker, confirmed the replace, and read the new total off the (animated)
+`NumberTicker` after its count-up settled; separately confirmed a malformed file is rejected
+inline without a reload, and that Today still measures 0 animations at rest afterwards (§3). Lives
+on Profile under the existing Storage section, next to `StorageStatus` — same "here's the honest
+state of your one copy of this data" neighbourhood.
 
 ## Known issues / tech debt
 
@@ -292,10 +311,13 @@ past-status suite still pass unchanged, 157 engine tests green, 0 animations at 
   durable storage at boot (D43), but the grant is the browser's call, not ours — Chrome
   decides from engagement signals, Firefox prompts, Safari grants on home-screen install. Profile
   reports the real outcome instead of assuming success. Clearing site data still wipes everything
-  regardless. **This remains the strongest argument for pulling the Phase 3 JSON export/import
-  forward** — a request the browser may refuse is not a backup, and export/import is the only one a
-  no-server app can have. Measured: a realistic year of history is ~425 KB of JSON (47 KB gzipped),
-  so file size is no reason to delay it
+  regardless. **This was the argument for pulling the Phase 3 JSON export/import forward, and it
+  now exists** (2026-09-12, D54) — a request the browser may refuse is not a backup, and
+  export/import is the only one a no-server app can have. Measured: a realistic year of history is
+  ~425 KB of JSON (47 KB gzipped), so file size was never a reason to delay it. What is still true:
+  the durable-storage grant itself remains the browser's call, not ours, and clearing site data
+  (or an eviction) still wipes everything — the export is a manual, user-driven copy, not an
+  automatic sync
 - **Documentation rots silently, and it did.** The 2026-08-06 audit found two CONVENTIONS rules
   that had become *false* rather than merely incomplete (rule 7's "no hard delete, anywhere" after
   categories gained a bounded delete; rule 8's list of sanctioned caches, which had grown by two),

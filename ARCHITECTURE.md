@@ -31,7 +31,8 @@ tests passing on the new runner without edits. That is the layering earning its 
 | `src/engine/stats.ts` | Aggregations over the log: `lastNDayCounts`, `activeDaysInLast`, `scheduledOutcomes`, `topTasks`, `skillBreakdown`, `rangeSummary`, `weekStrip` |
 | `src/engine/streaks.ts` | Streak transitions, **derived** from completion days — `computeHabitStreak`, `computeGlobalStreak`, `isStreakAtRisk`, `mergeLongest` (D29) |
 | `src/engine/badges.ts` | The badge catalogue as data (30 rules) + `evaluateBadges` / `newlyUnlocked` / `sortForGallery`. Rules are `measure`/`target` pairs, not predicates (D39) |
-| `src/engine/__tests__/` | 132 engine tests. Every engine function is covered; keep it that way |
+| `src/engine/backup.ts` | `BackupPayload` type + `parseBackupPayload` — field-by-field structural validation for a JSON file the user hands back to the app (D54) |
+| `src/engine/__tests__/` | 150 engine tests (166 total with the icon registry). Every engine function is covered; keep it that way |
 | **Data layer — the only place raw SQL lives** ||
 | `src/db/sqlite.ts` | The `SqlDatabase` interface (4 methods) everything above `db/` is written against. Survived a full driver swap unchanged |
 | `src/db/client.ts` | `getDb()` singleton; owns the worker protocol, the single-tab Web Lock, the user-facing startup error, and `probeStorage()` (D41). The ONLY file that knows which SQLite build is in use |
@@ -53,6 +54,7 @@ tests passing on the new runner without edits. That is the layering earning its 
 | `src/db/queries/streaks.ts` | `reconcileStreaks` — `MAX(stored, derived)` for the record, `INSERT OR IGNORE` for resets |
 | `src/db/queries/badges.ts` | `getBadgeUnlocks` / `recordUnlocks` (`INSERT OR IGNORE`, so a re-evaluation never moves the date) |
 | `src/db/queries/settings.ts` | Key/value settings (the capture-chip MRU list) |
+| `src/db/queries/backup.ts` | `exportBackup`/`importBackup` — reads every table into a `BackupPayload`, or wholesale-replaces every table from one inside a single write transaction (D54) |
 | **Stores — projections of the DB, never the other way round** ||
 | `src/store/useTaskStore.ts` | tasks + completionsToday + skipsToday; all task mutations, plus `backfillCompletion` (D32) |
 | `src/store/useCharacterStore.ts` | character projection; `setFromPersisted` only accepts DB-returned rows |
@@ -65,12 +67,12 @@ tests passing on the new runner without edits. That is the layering earning its 
 | `src/App.tsx` | Startup gate (open DB → migrate → hydrate → resync), layout, tab bar, route table. Non-initial routes are `React.lazy` |
 | `src/routes/Today.tsx` | Today view: schedule filter, fast capture, complete/undo/skip/+1 |
 | `src/routes/Calendar.tsx` | Month grid + selected-day list, editable on any day up to today (complete/undo, skip/unskip) with `resyncDerived()` after every write so streaks and badges repair immediately; day list is planned ∪ has-history (D48). Accepts `?day=YYYY-MM-DD` |
-| `src/routes/Profile.tsx` | Sigil, level, lifetime record strip, badge shelf, category manager, skill radar, storage status |
+| `src/routes/Profile.tsx` | Sigil, level, lifetime record strip, badge shelf, category manager, skill radar, storage status, backup controls |
 | `src/routes/Stats.tsx` | Dashboard with the Day/Week/Month/All filter governing every panel |
 | `src/routes/Badges.tsx` | The gallery: grouped crests, progress rings, detail sheet |
 | `src/routes/TaskDetail.tsx` | Edit form (all fields incl. repeat) + snooze + archive |
 | `src/routes/Archived.tsx` | Archived tasks with restore |
-| `src/components/` | `FastCapture`, `TaskCard`, `StatusHero`, `SkillChips`, `StorageStatus`, `icons` (UI glyphs), `categoryIcons` (the 30-glyph category library + local keyword search, D40), `charts/` |
+| `src/components/` | `FastCapture`, `TaskCard`, `StatusHero`, `SkillChips`, `StorageStatus`, `BackupControls` (export/import, D54), `icons` (UI glyphs), `categoryIcons` (the 30-glyph category library + local keyword search, D40), `charts/` |
 | `src/components/system/` | The design-system primitives: `SystemPanel`, `SystemHeading`, `RuneDivider`, `SectionBar`, `Sigil`, `SegmentRing`, `WeekStrip`, `SkillRow`, `SkillRadar`, `CategorySlot`, `CategoryEditor`, `RangeFilter`, `BadgeCrest`, and the four full-screen moments (`BootSequence`, `LevelUpOverlay`, `StreakMoment`, `BadgeMoment`) plus `StartupFailure` |
 | `src/components/ui/` | Magic UI primitives vendored from the registry. Kept close to upstream — customise the *callers*, not these (CONVENTIONS 14b) |
 | `src/lib/gsap.ts` | Plugin registration + `useGsap` (a `gsap.context` that reverts on unmount — essential under StrictMode) |

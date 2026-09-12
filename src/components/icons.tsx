@@ -171,3 +171,21 @@ export function CheckIcon({ className, size = 18 }: IconProps) {
     </svg>
   );
 }
+
+export function ExportIcon({ className, size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M12 3v11.5M8 8.5L12 3l4 5.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 15.5V19a2 2 0 002 2h12a2 2 0 002-2v-3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function ImportIcon({ className, size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M12 14.5V3M8 9l4 5.5L16 9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 15.5V19a2 2 0 002 2h12a2 2 0 002-2v-3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
