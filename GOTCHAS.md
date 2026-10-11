@@ -181,7 +181,7 @@ cross-origin-isolation ones in particular are gone with the VFS change (DECISION
     spin forever against the 403 body and looks exactly like "the job is still running." It cost a
     session once. Read CI state via `actions_list` / `actions_get` / `get_job_logs`, and never
     build a wait loop on top of raw `curl` to GitHub. Plain `curl` to the *published site*
-    (`gamedev1991.github.io`) is fine — that's how the deploy was verified.
+    (`rahul-ohri-ai-pm.github.io`) is fine — that's how the deploy was verified.
 
 ## Design pass — system-window redesign (2026-08-02)
 

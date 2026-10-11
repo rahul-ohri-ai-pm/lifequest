@@ -73,7 +73,7 @@ The app must work entirely offline after first install. OPFS holds the only copy
 - **PROGRESS.md**: what's done (Phase 2 complete), what's next (Phase 3), known debt.
 - **GOTCHAS.md**: environment traps (Vite base path, OPFS single-connection, font subsets, build-over-warm-dist artifact).
 - **Code**: 157 unit tests (all engine, 100% covered). React + Vite + TypeScript strict. Zustand stores. SQLite in a worker via `@sqlite.org/sqlite-wasm` + `opfs-sahpool` VFS.
-- **Live app**: https://gamedev1991.github.io/lifequest/ (deployed from main → GitHub Pages).
+- **Live app**: https://rahul-ohri-ai-pm.github.io/lifequest/ (deployed from main → GitHub Pages).
 
 **Absent assets:**
 - No existing PRODUCT.md, DESIGN.md, or design tokens documentation (brand world exists in code/CLAUDE.md only).

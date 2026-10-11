@@ -103,7 +103,7 @@ and ask the owner instead of improvising.
     found. A green build is not evidence the app starts. Check the build output too: a font or
     asset regression is only visible in the emitted `dist/assets/` list (GOTCHAS 25).
 17. Commit per milestone/feature with a descriptive message; push to `origin main`
-    (https://github.com/gamedev1991/lifequest). Update [PROGRESS.md](PROGRESS.md) when a
+    (https://github.com/rahul-ohri-ai-pm/lifequest). Update [PROGRESS.md](PROGRESS.md) when a
     milestone completes or new debt is created.
 17b. **Work directly on `main` — no feature or session branches** (owner instruction, 2026-07-30).
     Single-user repo with no review gate, so a branch adds a merge step and buys nothing. The

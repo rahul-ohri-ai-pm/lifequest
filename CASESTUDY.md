@@ -224,7 +224,7 @@ tests, and the production build, then died at the same step: `configure-pages`. 
 GitHub Pages site, and the workflow's own token could not create one — `pages: write` covers
 *deploying to* an existing site, not *creating* one, which needs repo-admin rights. The fix was a
 human clicking one dropdown in Settings. Once that was done, run #4 went green end to end and the
-app went live at **https://gamedev1991.github.io/lifequest/**.
+app went live at **https://rahul-ohri-ai-pm.github.io/lifequest/**.
 
 **PM decisions & why**:
 - **Recognizing an unfixable-by-me blocker is a skill, and the failure mode is thrash.** Run #2

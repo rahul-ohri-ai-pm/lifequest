@@ -32,7 +32,7 @@ Plan: [PLAN.md](PLAN.md). Update this file at every milestone commit.
 | Milestone | Status | Notes |
 |---|---|---|
 | W1 — Web app / installable PWA | ✅ Done (2026-07-29) | Same codebase runs in the browser: SQLite via WebAssembly + OPFS, service worker supplying cross-origin isolation + offline cache, PWA manifest/icons (installs to home screen), GitHub Pages deploy workflow. Verified in a real browser end-to-end — 13/13 checks (see below). Two shared-code bugs fixed on the way: no exclusive transactions on web (`src/db/transaction.ts`), and an infinite-re-render zustand selector |
-| W2 — Live deploy | ✅ Done (2026-07-30) | **https://gamedev1991.github.io/lifequest/** — run #4 (`workflow_dispatch` on `main`) green through `configure-pages` → `deploy-pages`. Runs #1–#3 all failed on the same wall: the repo had no Pages site, and the workflow cannot create one (`GITHUB_TOKEN`'s `pages: write` deploys to an existing site; creating one needs repo-admin). Unblocked by the owner enabling Settings → Pages → Source → GitHub Actions. Root, `manifest.webmanifest`, `sw.js`, `404.html` all serve 200 |
+| W2 — Live deploy | ✅ Done (2026-07-30) | **https://rahul-ohri-ai-pm.github.io/lifequest/** — run #4 (`workflow_dispatch` on `main`) green through `configure-pages` → `deploy-pages`. Runs #1–#3 all failed on the same wall: the repo had no Pages site, and the workflow cannot create one (`GITHUB_TOKEN`'s `pages: write` deploys to an existing site; creating one needs repo-admin). Unblocked by the owner enabling Settings → Pages → Source → GitHub Actions. Root, `manifest.webmanifest`, `sw.js`, `404.html` all serve 200 |
 
 W1 verification (headless Chromium at phone viewport, served like GitHub Pages — subpath, no
 COOP/COEP headers): service worker takes control → page cross-origin isolated → SQLite-wasm opens
@@ -79,7 +79,7 @@ gz vs 419.6 / 136.9 before** — flat, and marginally smaller gzipped. CSS +1.8 
 still separately code-split; fonts still latin-subset only.
 
 **Shipped**: merged to `main` (fast-forward, `fad37fa`) and deployed — run 30721611537 green,
-live at https://gamedev1991.github.io/lifequest/. Verified by hashing **all 21 deployed files**
+live at https://rahul-ohri-ai-pm.github.io/lifequest/. Verified by hashing **all 21 deployed files**
 against `dist/` (21/21 identical, including the wasm, service worker and manifest), then re-running
 the full browser harness against `vite preview` serving those exact bytes. The re-run mattered: a
 one-line `startValue` fix landed *after* the first harness pass, so the build that shipped was not
