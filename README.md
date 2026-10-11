@@ -10,19 +10,6 @@ levels, a calendar where any past day's status is directly editable (streaks and
 on the spot), editable categories with split XP, derived streaks, a 30-badge engine with its
 gallery, and a filtered skill dashboard. Phase 3 is next, see [PROGRESS.md](PROGRESS.md).
 
-## For any AI agent / developer working on this repo: read in this order
-
-| File | What it is | Read when |
-|---|---|---|
-| [CLAUDE.md](CLAUDE.md) | **The product spec**: features, schema, XP/streak rules, design system, phased roadmap. The source of truth for *what* to build | Always, first |
-| [CONVENTIONS.md](CONVENTIONS.md) | **Hard rules** for changing code: layer boundaries, migration rules, date handling, verification workflow. Violating these corrupts data or breaks the build | Always, before editing anything |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is actually structured: layers, data flow of every mutation, file map | Before touching more than one file |
-| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (Vite base path, worker-only OPFS, font subsets, warm-`dist/` builds). Do not "fix" these | Before touching package.json, configs, or tests |
-| [DECISIONS.md](DECISIONS.md) | Why things are the way they are. Do not undo these without the owner asking | Before proposing refactors |
-| [PLAN.md](PLAN.md) | Milestone plan (M0 to M9 plus Phases 2 and 3) | When starting new feature work |
-| [PROGRESS.md](PROGRESS.md) | What's done, what's next, known debt. **Update it when you complete a milestone** | Start and end of every work session |
-| [CASESTUDY.md](CASESTUDY.md) | PM-facing dev log: decisions, rationale, owner feedback per step. **Append after every milestone / feedback round** | After milestones and owner feedback |
-
 ## Quick start
 
 ```bash
@@ -112,3 +99,18 @@ If the app shows **"Can't open your data"**, in order of likelihood: it's a priv
 the device is out of storage. Tap **Try again** first: the underlying error is often transient.
 If it persists, tap **Diagnose**, then **Copy report**: that runs the real OPFS sequence and names
 the step that failed, which is worth far more than a screenshot of the message.
+
+## For contributors
+
+Reading order for anyone (human or AI agent) changing this repo:
+
+| File | What it is | Read when |
+|---|---|---|
+| [CLAUDE.md](CLAUDE.md) | **The product spec**: features, schema, XP/streak rules, design system, phased roadmap. The source of truth for *what* to build | Always, first |
+| [CONVENTIONS.md](CONVENTIONS.md) | **Hard rules** for changing code: layer boundaries, migration rules, date handling, verification workflow. Violating these corrupts data or breaks the build | Always, before editing anything |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is actually structured: layers, data flow of every mutation, file map | Before touching more than one file |
+| [GOTCHAS.md](GOTCHAS.md) | Environment traps that already bit us once (Vite base path, worker-only OPFS, font subsets, warm-`dist/` builds). Do not "fix" these | Before touching package.json, configs, or tests |
+| [DECISIONS.md](DECISIONS.md) | Why things are the way they are. Do not undo these without the owner asking | Before proposing refactors |
+| [PLAN.md](PLAN.md) | Milestone plan (M0 to M9 plus Phases 2 and 3) | When starting new feature work |
+| [PROGRESS.md](PROGRESS.md) | What's done, what's next, known debt. **Update it when you complete a milestone** | Start and end of every work session |
+| [CASESTUDY.md](CASESTUDY.md) | PM-facing dev log: decisions, rationale, owner feedback per step. **Append after every milestone / feedback round** | After milestones and owner feedback |
